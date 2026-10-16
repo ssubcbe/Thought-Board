@@ -18,6 +18,7 @@ create table if not exists public.thoughts (
   -- Project fields (used when decision = 'proceed')
   priority         text check (priority in ('high','medium','low')),
   status           text check (status in ('not_started','wip','completed','on_hold')),
+  percent_complete integer check (percent_complete is null or percent_complete between 0 and 100),
 
   start_date       date,
   duration_weeks   integer check (duration_weeks is null or duration_weeks between 0 and 520),
@@ -35,6 +36,10 @@ create table if not exists public.thoughts (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
+
+-- Upgrades for databases created with an earlier version of this file
+alter table public.thoughts add column if not exists percent_complete integer
+  check (percent_complete is null or percent_complete between 0 and 100);
 
 create index if not exists thoughts_user_idx on public.thoughts (user_id, updated_at desc);
 
@@ -65,16 +70,17 @@ revoke all on public.thoughts from anon;
 grant select, insert, update, delete on public.thoughts to authenticated;
 
 -- ── Sharing: anyone with the secret token can read THAT ONE row, nothing else ──
-create or replace function public.get_shared_thought(p_token uuid)
+drop function if exists public.get_shared_thought(uuid);
+create function public.get_shared_thought(p_token uuid)
 returns table (
   title text, icon text, stage text, decision text, priority text, status text,
-  start_date date, duration_weeks integer, end_date date,
+  percent_complete integer, start_date date, duration_weeks integer, end_date date,
   description text, objective text, expected_benefit text, planned_cost numeric,
   dev_link text, updated_at timestamptz
 )
 language sql stable security definer set search_path = public as $$
   select t.title, t.icon, t.stage, t.decision, t.priority, t.status,
-         t.start_date, t.duration_weeks, t.end_date,
+         t.percent_complete, t.start_date, t.duration_weeks, t.end_date,
          t.description, t.objective, t.expected_benefit, t.planned_cost,
          t.dev_link, t.updated_at
   from public.thoughts t

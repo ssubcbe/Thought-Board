@@ -115,7 +115,7 @@
         <fieldset id="projectBox" class="project-box">
           <legend>Project</legend>
           <p id="projectHint" class="hint">Priority and Status become active once the Decision is <b>Proceed</b>.</p>
-          <div class="grid-2">
+          <div class="grid-2" id="projGrid">
             <label class="field"><span>Priority</span>
               <select name="priority">
                 <option value="">—</option>
@@ -131,6 +131,10 @@
                 <option value="completed">Completed</option>
                 <option value="on_hold">On-Hold</option>
               </select></label>
+            <label class="field" id="pctField" hidden><span>% Complete</span>
+              <div class="suffix-input"><input name="percent_complete" type="number" min="0" max="100" step="5" inputmode="numeric"><span>%</span></div>
+              <div class="progress sm" id="pctBar"><span></span></div>
+            </label>
           </div>
         </fieldset>
 

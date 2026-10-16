@@ -36,7 +36,7 @@ var M = (function () {
   // Columns that are saved to the database
   const FIELDS = [
     'title', 'icon', 'stage', 'decision', 'priority', 'status',
-    'start_date', 'duration_weeks', 'end_date',
+    'percent_complete', 'start_date', 'duration_weeks', 'end_date',
     'description', 'objective', 'expected_benefit', 'planned_cost',
     'dev_link', 'share_token', 'sort_order',
   ];
@@ -44,7 +44,7 @@ var M = (function () {
   function blank() {
     return {
       id: null, title: '', icon: '', stage: 'initial', decision: null,
-      priority: null, status: null, start_date: null, duration_weeks: null,
+      priority: null, status: null, percent_complete: null, start_date: null, duration_weeks: null,
       end_date: null, description: '', objective: '', expected_benefit: '',
       planned_cost: null, dev_link: '', share_token: null, sort_order: 0,
     };
@@ -207,13 +207,29 @@ var M = (function () {
     return `<span class="${cls}">${esc(initials(t.title))}</span>`;
   }
   
+  /** % Complete rules: WIP keeps its value (default 0), Completed = 100,
+      On-Hold keeps the last value, Not Started clears it. */
+  function percentFor(status, pct) {
+    const p = pct === null || pct === undefined || pct === '' || isNaN(+pct) ? null : Math.max(0, Math.min(100, Math.round(+pct)));
+    if (status === 'completed') return 100;
+    if (status === 'wip') return p ?? 0;
+    if (status === 'on_hold') return p;
+    return null;
+  }
+  /** Progress bar for WIP / On-Hold projects with a % value. */
+  function progressHtml(t, size = '') {
+    if (!isProject(t) || t.percent_complete == null || !['wip', 'on_hold'].includes(t.status)) return '';
+    const p = Math.max(0, Math.min(100, +t.percent_complete));
+    return `<div class="progress ${size}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" title="${p}% complete"><span style="width:${p}%"></span></div>`;
+  }
+
   const chip = (text, cls = '') => `<span class="chip ${cls}">${esc(text)}</span>`;
   
   function chipsHtml(t, { hideStage = false } = {}) {
     const c = [];
     if (isProject(t)) {
       c.push(chip('Project', 'accent'));
-      if (t.status) c.push(chip(label(STATUSES, t.status), 's-' + t.status));
+      if (t.status) c.push(chip(label(STATUSES, t.status) + (t.percent_complete != null && ['wip', 'on_hold'].includes(t.status) ? ` · ${t.percent_complete}%` : ''), 's-' + t.status));
       if (t.priority) c.push(chip(label(PRIORITIES, t.priority), 'p-' + t.priority));
     } else {
       if (!hideStage) c.push(chip(label(STAGES, t.stage)));
@@ -235,7 +251,7 @@ var M = (function () {
     return s;
   }
   
-  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
@@ -258,8 +274,8 @@ var createStore = (function () {
     for (const k of FIELDS) {
       if (!(k in d)) continue;
       let v = d[k];
-      if (v === '' && ['decision', 'priority', 'status', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'share_token'].includes(k)) v = null;
-      if ((k === 'duration_weeks' || k === 'planned_cost') && v !== null && v !== undefined) v = Number(v);
+      if (v === '' && ['decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'share_token'].includes(k)) v = null;
+      if ((k === 'duration_weeks' || k === 'planned_cost' || k === 'percent_complete') && v !== null && v !== undefined) v = Number(v);
       out[k] = v;
     }
     if ('start_date' in out || 'duration_weeks' in out) {
@@ -296,7 +312,7 @@ var createStore = (function () {
         mk({ title: 'Learn watercolour painting', icon: '🎨', stage: 'review',
           description: 'Weekend classes or an online course.', planned_cost: 80 }),
         mk({ title: 'Home vegetable garden', icon: '🌱', stage: 'decision', decision: 'proceed',
-          priority: 'high', status: 'wip', start_date: today, duration_weeks: 8,
+          priority: 'high', status: 'wip', percent_complete: 40, start_date: today, duration_weeks: 8,
           description: 'Raised beds on the terrace with drip irrigation.',
           objective: 'Grow a share of our own greens year round.',
           expected_benefit: 'Fresh produce, lower grocery bill, weekend activity.',
@@ -334,7 +350,13 @@ var createStore = (function () {
     mode = 'supabase';
     constructor(client) { this.sb = client; }
   
-    static ok({ data, error }) { if (error) throw new Error(error.message); return data; }
+    static ok({ data, error }) {
+      if (error) {
+        if (/percent_complete/.test(error.message)) throw new Error('Database needs a one-time update: run migration-01-percent-complete.sql in Supabase → SQL Editor.');
+        throw new Error(error.message);
+      }
+      return data;
+    }
   
     async session() { const { data } = await this.sb.auth.getSession(); return data.session; }
     async signIn(email, password) {

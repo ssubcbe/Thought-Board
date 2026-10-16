@@ -38,7 +38,7 @@ const BOARDS = {
     include: M.isProject,
     columns: M.STATUSES,
     key: (t) => t.status || 'not_started',
-    move: (t, col) => ({ status: col }),
+    move: (t, col) => ({ status: col, percent_complete: M.percentFor(col, t.percent_complete) }),
   },
   priority: {
     hint: 'Projects by priority.',
@@ -90,16 +90,46 @@ function renderSummary() {
   const projects = all.filter(M.isProject);
   const open = all.filter((t) => !M.isProject(t) && t.decision !== 'dropped').length;
   const cost = projects.reduce((s, t) => s + (+t.planned_cost || 0), 0);
+  const wip = projects.filter((t) => t.status === 'wip');
+  const avg = wip.length ? Math.round(wip.reduce((s, t) => s + (+t.percent_complete || 0), 0) / wip.length) : null;
+  // [label, value, sub-text, go-to target]
   const stats = [
-    ['Open thoughts', open],
-    ['Projects', projects.length],
-    ['In progress', projects.filter((t) => t.status === 'wip').length],
-    ['Completed', projects.filter((t) => t.status === 'completed').length],
-    ['Planned cost · projects', M.fmtPrimary(cost), M.fmtSecondary(cost)],
+    ['Open thoughts', open, '', 'pipeline'],
+    ['Projects', projects.length, '', 'projects'],
+    ['In progress', wip.length, avg !== null ? `avg ${avg}%` : '', 'wip'],
+    ['Completed', projects.filter((t) => t.status === 'completed').length, '', 'completed'],
+    ['Planned cost · projects', M.fmtPrimary(cost), M.fmtSecondary(cost) ? `(${M.fmtSecondary(cost)})` : '', ''],
   ];
-  $('#summary').innerHTML = stats.map(([k, v, sub]) =>
-    `<div class="stat"><span class="stat-k">${esc(k)}</span><span class="stat-v">${esc(v)}${sub ? ` <small class="stat-sub">(${esc(sub)})</small>` : ''}</span></div>`).join('');
+  $('#summary').innerHTML = stats.map(([k, v, sub, go]) => {
+    const inner = `<span class="stat-k">${esc(k)}</span><span class="stat-v">${esc(v)}${sub ? ` <small class="stat-sub">${esc(sub)}</small>` : ''}</span>`;
+    return go
+      ? `<button type="button" class="stat link${isActiveGo(go) ? ' on' : ''}" data-go="${go}" title="Show ${esc(k.toLowerCase())}">${inner}</button>`
+      : `<div class="stat">${inner}</div>`;
+  }).join('');
   renderFx();
+}
+
+/* Summary tiles → board views */
+const GO = {
+  pipeline:  { board: 'pipeline' },
+  projects:  { board: 'status' },
+  wip:       { board: 'status', focus: 'wip' },
+  completed: { board: 'status', focus: 'completed' },
+};
+function isActiveGo(go) {
+  const g = GO[go];
+  return state.view === 'board' && state.board === g.board && (state.focus || null) === (g.focus || null);
+}
+function goTo(go) {
+  const g = GO[go]; if (!g) return;
+  state.view = 'board'; state.board = g.board; state.focus = g.focus || null; state.q = '';
+  $('#q').value = '';
+  savePrefs(); render();
+  const target = g.focus ? $(`.col-body[data-drop="${g.focus}"]`)?.closest('.col') : $('.board');
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (g.focus) { target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 1600); }
+  }
 }
 
 /* ───────────── Exchange rate ───────────── */
@@ -166,6 +196,7 @@ function cardHtml(t, board) {
       </div>
     </div>
     ${t.description ? `<p class="card-desc">${esc(t.description)}</p>` : ''}
+    ${M.progressHtml(t)}
     ${dates || cost ? `<div class="card-meta">${dates ? `<span>${esc(dates)}</span>` : ''}${cost ? `<span class="cost">${esc(cost)}</span>` : ''}</div>` : ''}
     <div class="card-foot">
       ${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener" title="Open development link">↗ Dev link</a>` : '<span></span>'}
@@ -183,7 +214,7 @@ function renderBoard() {
   <div class="board" style="--cols:${b.columns.length}">
     ${b.columns.map((col) => {
       const cards = items.filter((t) => b.key(t) === col.id);
-      return `<section class="col">
+      return `<section class="col${state.focus === col.id ? ' focus' : ''}">
         <header class="col-head"><h2>${esc(col.label)}</h2><span class="count">${cards.length}</span></header>
         <div class="col-body" data-drop="${esc(col.id)}">
           ${cards.map((t) => cardHtml(t, state.board)).join('') || '<div class="col-empty">Drop here</div>'}
@@ -246,7 +277,7 @@ function openEditor(id) {
   const t = id ? find(id) : M.blank();
   if (!t) return;
   state.editingId = id || null;
-  for (const n of ['title', 'icon', 'stage', 'decision', 'priority', 'status', 'start_date',
+  for (const n of ['title', 'icon', 'stage', 'decision', 'priority', 'status', 'percent_complete', 'start_date',
     'duration_weeks', 'description', 'objective', 'expected_benefit', 'planned_cost', 'dev_link']) {
     fe(n).value = t[n] ?? '';
   }
@@ -278,6 +309,13 @@ function syncForm() {
     if (!fe('priority').value) fe('priority').value = 'medium';
     if (!fe('status').value) fe('status').value = 'not_started';
   }
+  const status = fe('status').value;
+  const showPct = proj && status === 'wip';
+  if (showPct && fe('percent_complete').value === '') fe('percent_complete').value = 0;
+  $('#pctField').hidden = !showPct;
+  $('#projGrid').className = showPct ? 'grid-3' : 'grid-2';
+  const pv = Math.max(0, Math.min(100, +fe('percent_complete').value || 0));
+  $('#pctBar span').style.width = pv + '%';
   $('#projectBox').classList.toggle('inactive', !proj);
   $('#projectHint').hidden = proj;
   const badge = $('#typeBadge');
@@ -308,6 +346,7 @@ function readForm() {
     decision: stage === 'decision' ? v('decision') || null : null,
     priority: v('priority') || null,
     status: v('status') || null,
+    percent_complete: null,
     start_date: v('start_date') || null,
     duration_weeks: num('duration_weeks'),
     description: v('description'),
@@ -317,6 +356,7 @@ function readForm() {
     dev_link: M.normaliseUrl(v('dev_link')),
   };
   d.end_date = M.endDate(d.start_date, d.duration_weeks);
+  d.percent_complete = M.percentFor(M.isProject(d) ? d.status : null, num('percent_complete'));
   return d;
 }
 
@@ -325,6 +365,8 @@ function validate(d) {
   if (M.wordCount(d.description) > M.WORD_LIMIT) return `Description is over ${M.WORD_LIMIT} words.`;
   if (M.wordCount(d.objective) > M.WORD_LIMIT) return `Objective is over ${M.WORD_LIMIT} words.`;
   if (d.dev_link && !M.safeUrl(d.dev_link)) return 'Development link must be a web address.';
+  const rawPct = fe('percent_complete').value.trim();
+  if (M.isProject(d) && d.status === 'wip' && rawPct !== '' && (+rawPct < 0 || +rawPct > 100 || isNaN(+rawPct))) return '% Complete must be between 0 and 100.';
   if (d.duration_weeks !== null && (d.duration_weeks < 0 || !Number.isFinite(d.duration_weeks))) return 'Duration must be 0 or more weeks.';
   if (d.planned_cost !== null && (d.planned_cost < 0 || !Number.isFinite(d.planned_cost))) return 'Planned cost must be 0 or more.';
   return null;
@@ -465,9 +507,12 @@ function wire() {
     catch (ex) { err.textContent = ex.message; err.hidden = false; }
   });
 
+  // Summary tiles
+  $('#summary').addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) goTo(b.dataset.go); });
+
   // Toolbar
-  $('#viewSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) { state.view = b.dataset.view; savePrefs(); render(); } });
-  $('#boardSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-board]'); if (b) { state.board = b.dataset.board; savePrefs(); render(); } });
+  $('#viewSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) { state.focus = null; state.view = b.dataset.view; savePrefs(); render(); } });
+  $('#boardSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-board]'); if (b) { state.focus = null; state.board = b.dataset.board; savePrefs(); render(); } });
   $('#filterSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-filter]'); if (b) { state.filter = b.dataset.filter; savePrefs(); render(); } });
   $('#q').addEventListener('input', (e) => { state.q = e.target.value; state.view === 'list' ? renderList() : renderBoard(); });
   $('#newBtn').addEventListener('click', () => openEditor());

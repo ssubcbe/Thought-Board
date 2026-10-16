@@ -46,11 +46,13 @@ function render(t) {
           <div class="chips">${M.chipsHtml(t)}</div>
         </div>
       </header>
+      ${M.progressHtml(t, 'lg')}
       <div class="facts">
         ${fact('Stage', M.label(M.STAGES, t.stage))}
         ${t.stage === 'decision' ? fact('Decision', t.decision ? M.label(M.DECISIONS, t.decision) : 'Awaiting decision') : ''}
         ${proj ? fact('Priority', M.label(M.PRIORITIES, t.priority)) : ''}
         ${proj ? fact('Status', M.label(M.STATUSES, t.status)) : ''}
+        ${proj && t.percent_complete != null && ['wip', 'on_hold', 'completed'].includes(t.status) ? fact('% Complete', t.percent_complete + '%') : ''}
         ${fact('Start date', M.fmtDate(t.start_date))}
         ${fact('Duration', t.duration_weeks != null ? `${t.duration_weeks} weeks` : '')}
         ${fact('End date', M.fmtDate(t.end_date))}
