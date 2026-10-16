@@ -9,8 +9,8 @@
 var CONFIG = {
   APP_NAME: 'Thought Board',
 
-  SUPABASE_URL: '',        // e.g. 'https://abcdxyz.supabase.co'
-  SUPABASE_ANON_KEY: '',   // anon / publishable key from Project Settings → API
+  SUPABASE_URL: 'https://znykehhdlrtirqhefegv.supabase.co',        // e.g. 'https://abcdxyz.supabase.co'
+  SUPABASE_ANON_KEY: 'sb_publishable_NOi7IRYCKXaTzXG8snwQew_TOaDhQP0',   // anon / publishable key from Project Settings → API
 
   CURRENCY: 'INR',         // used for Planned cost
   LOCALE: 'en-IN',         // number & date formatting
