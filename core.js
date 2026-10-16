@@ -86,14 +86,90 @@ var M = (function () {
     return d.toLocaleDateString(CONFIG.LOCALE, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
   
-  function fmtMoney(n) {
-    if (n === null || n === undefined || n === '' || isNaN(+n)) return '';
+  /* ── Currency: GBP primary, INR secondary at the latest daily rate ── */
+  const CUR1 = CONFIG.PRIMARY_CURRENCY || 'GBP';
+  const CUR2 = CONFIG.SECONDARY_CURRENCY || 'INR';
+  const LOC1 = CONFIG.PRIMARY_LOCALE || 'en-GB';
+  const LOC2 = CONFIG.SECONDARY_LOCALE || 'en-IN';
+  const FX_KEY = 'thoughtboard.fx.v1';
+  const FX_MAX_AGE = 6 * 60 * 60 * 1000; // re-check every 6 hours
+  const XE_URL = `https://www.xe.com/currencyconverter/convert/?Amount=1&From=${CUR1}&To=${CUR2}`;
+
+  // fx = { rate, date, source, manual, fetched_at }
+  const fx = { rate: null, date: null, source: null, manual: false, fetched_at: 0 };
+  try { Object.assign(fx, JSON.parse(localStorage.getItem(FX_KEY) || '{}')); } catch { /* ignore */ }
+  const fxSave = () => { try { localStorage.setItem(FX_KEY, JSON.stringify(fx)); } catch { /* ignore */ } };
+
+  async function getJson(url) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8000);
     try {
-      return new Intl.NumberFormat(CONFIG.LOCALE, {
-        style: 'currency', currency: CONFIG.CURRENCY, maximumFractionDigits: 0,
-      }).format(+n);
-    } catch { return String(n); }
+      const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
   }
+
+  // Free, no-key sources, tried in order. Each returns { rate, date }.
+  const FX_SOURCES = [
+    { name: 'Frankfurter (ECB)', url: `https://api.frankfurter.dev/v2/rate/${CUR1}/${CUR2}`,
+      read: (d) => ({ rate: d.rate ?? (d.rates && d.rates[CUR2]), date: d.date }) },
+    { name: 'Frankfurter (ECB)', url: `https://api.frankfurter.dev/v1/latest?base=${CUR1}&symbols=${CUR2}`,
+      read: (d) => ({ rate: d.rates && d.rates[CUR2], date: d.date }) },
+    { name: 'ExchangeRate-API', url: `https://open.er-api.com/v6/latest/${CUR1}`,
+      read: (d) => ({ rate: d.rates && d.rates[CUR2],
+        date: d.time_last_update_unix ? new Date(d.time_last_update_unix * 1000).toISOString().slice(0, 10) : null }) },
+  ];
+
+  /** Fetch the latest rate (unless a manual rate is set). Resolves true if the rate changed. */
+  async function fxRefresh(force = false) {
+    if (fx.manual) return false;
+    if (!force && fx.rate && Date.now() - fx.fetched_at < FX_MAX_AGE) return false;
+    for (const s of FX_SOURCES) {
+      try {
+        const { rate, date } = s.read(await getJson(s.url));
+        if (rate && isFinite(rate) && rate > 0) {
+          const changed = rate !== fx.rate;
+          Object.assign(fx, { rate: +rate, date: date || new Date().toISOString().slice(0, 10),
+            source: s.name, manual: false, fetched_at: Date.now() });
+          fxSave();
+          return changed;
+        }
+      } catch { /* try next source */ }
+    }
+    return false; // keep last known rate (if any)
+  }
+
+  /** Set a manual rate (e.g. copied from XE). Pass null to return to automatic. */
+  async function fxSetManual(rate) {
+    if (rate && isFinite(rate) && rate > 0) {
+      Object.assign(fx, { rate: +rate, date: new Date().toISOString().slice(0, 10), source: 'Your rate', manual: true, fetched_at: Date.now() });
+      fxSave();
+      return true;
+    }
+    fx.manual = false; fx.fetched_at = 0; fxSave();
+    return fxRefresh(true);
+  }
+
+  function fmtCur(n, cur, loc, digits = 0) {
+    try { return new Intl.NumberFormat(loc, { style: 'currency', currency: cur, maximumFractionDigits: digits }).format(+n); }
+    catch { return `${cur} ${n}`; }
+  }
+  const hasAmount = (n) => !(n === null || n === undefined || n === '' || isNaN(+n));
+  const fmtPrimary = (n) => (hasAmount(n) ? fmtCur(n, CUR1, LOC1) : '');
+  const fmtSecondary = (n) => (hasAmount(n) && fx.rate ? fmtCur(+n * fx.rate, CUR2, LOC2) : '');
+  /** "£1,200 (₹1,34,500)" — secondary omitted if no rate is known yet. */
+  function fmtMoney(n) {
+    if (!hasAmount(n)) return '';
+    const s = fmtSecondary(n);
+    return s ? `${fmtPrimary(n)} (${s})` : fmtPrimary(n);
+  }
+  /** "£1 = ₹112.45 · Frankfurter (ECB), 16 Oct 2026" */
+  function fxLabel() {
+    if (!fx.rate) return `${CUR2} rate unavailable`;
+    return `${fmtCur(1, CUR1, LOC1)} = ${fmtCur(fx.rate, CUR2, LOC2, 2)} · ${fx.source || ''}${fx.date ? ', ' + fmtDate(fx.date) : ''}`;
+  }
+  const currencySymbol = () => (fmtCur(0, CUR1, LOC1).replace(/[\d.,\s]/g, '') || CUR1);
   
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -159,7 +235,7 @@ var M = (function () {
     return s;
   }
   
-  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtMoney, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
@@ -218,13 +294,13 @@ var createStore = (function () {
           description: 'Collect recipes from relatives and turn them into a small printed book.',
           objective: 'Preserve family recipes for the next generation.' }),
         mk({ title: 'Learn watercolour painting', icon: '🎨', stage: 'review',
-          description: 'Weekend classes or an online course.', planned_cost: 8000 }),
+          description: 'Weekend classes or an online course.', planned_cost: 80 }),
         mk({ title: 'Home vegetable garden', icon: '🌱', stage: 'decision', decision: 'proceed',
           priority: 'high', status: 'wip', start_date: today, duration_weeks: 8,
           description: 'Raised beds on the terrace with drip irrigation.',
           objective: 'Grow a share of our own greens year round.',
           expected_benefit: 'Fresh produce, lower grocery bill, weekend activity.',
-          planned_cost: 25000 }),
+          planned_cost: 250 }),
         mk({ title: 'Sabbatical travel year', stage: 'decision', decision: 'future',
           description: 'Take a long break to travel.' }),
       ];

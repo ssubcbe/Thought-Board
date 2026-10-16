@@ -56,6 +56,7 @@ Commit. Reload your site → sign in with the user from step 3.
 | End date | Start date + Duration (weeks), calculated automatically |
 | Description / Objective | Max 250 words each (live counter) |
 | Icon | Square slot: an emoji, a square image URL, or the title's initials by default |
+| Planned cost | Entered in **£ (GBP)**, shown as `£1,200 (₹1,34,880)`. The ₹ figure uses the latest free daily rate (Frankfurter/ECB, backup: ExchangeRate-API), re-checked every 6 hours. Click the rate pill or **⋯ → Exchange rate…** to refresh, compare on XE, or set your own rate. Change currencies in `config.js`. |
 | Dev link | Link to wherever the real work happens (Notion, Drive, Trello, GitHub…) |
 | Sharing | ⋯ Share → *Create link* → `share.html?t=<secret>`. *Stop sharing* kills the link. |
 

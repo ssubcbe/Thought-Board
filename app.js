@@ -67,6 +67,7 @@ async function enterApp() {
   $('#signoutItem').hidden = store.mode === 'local';
   try { state.items = await store.list(); } catch (e) { toast(e.message, true); }
   render();
+  M.fxRefresh().then(render).catch(() => {});
 }
 
 /* ───────────── Rendering ───────────── */
@@ -94,10 +95,47 @@ function renderSummary() {
     ['Projects', projects.length],
     ['In progress', projects.filter((t) => t.status === 'wip').length],
     ['Completed', projects.filter((t) => t.status === 'completed').length],
-    ['Planned cost', M.fmtMoney(cost) || '—'],
+    ['Planned cost · projects', M.fmtPrimary(cost), M.fmtSecondary(cost)],
   ];
-  $('#summary').innerHTML = stats.map(([k, v]) =>
-    `<div class="stat"><span class="stat-k">${esc(k)}</span><span class="stat-v">${esc(v)}</span></div>`).join('');
+  $('#summary').innerHTML = stats.map(([k, v, sub]) =>
+    `<div class="stat"><span class="stat-k">${esc(k)}</span><span class="stat-v">${esc(v)}${sub ? ` <small class="stat-sub">(${esc(sub)})</small>` : ''}</span></div>`).join('');
+  renderFx();
+}
+
+/* ───────────── Exchange rate ───────────── */
+function renderFx() {
+  const note = $('#fxNote');
+  if (note) note.textContent = M.fxLabel();
+}
+
+function openFx() {
+  $('#fxCurrent').textContent = M.fxLabel();
+  $('#fxMode').textContent = M.fx.manual
+    ? 'You set this rate yourself. It stays fixed until you change it or go back to automatic.'
+    : 'Updated automatically from free daily reference rates (European Central Bank). It may differ slightly from XE.';
+  $('#fxXe').href = M.XE_URL;
+  $('#fxManual').value = M.fx.manual && M.fx.rate ? M.fx.rate : '';
+  $('#fxAutoRow').hidden = !M.fx.manual;
+  if (!$('#fxDlg').open) $('#fxDlg').showModal();
+}
+
+async function onFxAction(e) {
+  const b = e.target.closest('[data-fx]');
+  if (!b) return;
+  b.disabled = true;
+  try {
+    if (b.dataset.fx === 'manual') {
+      const v = parseFloat($('#fxManual').value);
+      if (!(v > 0)) { toast('Enter the ₹ amount for £1, e.g. 112.50', true); return; }
+      await M.fxSetManual(v); toast('Using your rate');
+    } else if (b.dataset.fx === 'auto') {
+      await M.fxSetManual(null); toast(M.fx.manual ? 'Could not fetch the rate' : 'Back to automatic rate');
+    } else {
+      if (M.fx.manual) await M.fxSetManual(null); else await M.fxRefresh(true);
+      toast(M.fx.rate ? 'Rate updated' : 'Could not fetch the rate — check your connection', !M.fx.rate);
+    }
+    render(); openFx();
+  } finally { b.disabled = false; }
 }
 
 function matches(t) {
@@ -255,6 +293,8 @@ function syncForm() {
     c.classList.toggle('over', n > M.WORD_LIMIT);
   });
   $('#iconPreview').innerHTML = M.iconHtml({ icon: fe('icon').value, title: fe('title').value }, 'lg');
+  const sec = M.fmtSecondary(fe('planned_cost').value);
+  $('#costSecondary').textContent = sec ? `≈ ${sec}` : '';
 }
 
 function readForm() {
@@ -442,6 +482,7 @@ function wire() {
     if (b.dataset.menu === 'export') exportJson();
     if (b.dataset.menu === 'import') $('#importFile').click();
     if (b.dataset.menu === 'signout') { await store.signOut(); location.reload(); }
+    if (b.dataset.menu === 'fx') openFx();
   });
   $('#importFile').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importJson(f); e.target.value = ''; });
 
@@ -498,7 +539,9 @@ function wire() {
   $('#scrim').addEventListener('click', closeEditor);
   $('#deleteBtn').addEventListener('click', onDelete);
   $('#shareFromForm').addEventListener('click', () => openShare(state.editingId));
-  $('#currencyNote').textContent = CONFIG.CURRENCY;
+  $('#currencyNote').textContent = `in ${M.currencySymbol()}`;
+  $('#fxNote').addEventListener('click', openFx);
+  $('#fxDlg').addEventListener('click', onFxAction);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#drawer').classList.contains('open') && !document.querySelector('dialog[open]')) closeEditor();
   });
