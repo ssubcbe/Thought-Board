@@ -526,10 +526,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .j-phase { left: 100%; }            /* sits over the segment boundary (narrow screens only) */
 @media (min-width: 1000px) {
   .j-side {
-    display: flex; flex: 1 1 0; min-width: 120px; align-items: center; justify-content: center;
+    display: flex; flex: 0 0 max(120px, 9.25vw); align-items: center; justify-content: center;
   }
   .j-side span {
-    font: 700 15px/1 var(--font-display); letter-spacing: .2em; text-transform: uppercase;
+    font: 700 14px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase;
     display: inline-flex; flex-direction: column; align-items: center; gap: 8px;
   }
   .j-side span::after { content: ''; width: 42px; height: 3px; border-radius: 2px; }
@@ -539,6 +539,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .j-side.right { background: var(--accent-soft); border-left: 1px solid var(--line); }
   .j-side.right span { color: var(--accent); }
   .j-side.right span::after { background: var(--accent); }
-  .journey-track { flex: 0 1 880px; min-width: 760px; padding: 0 22px; }
+  .journey-track { flex: 1 1 auto; min-width: 0; padding: 0 22px; }
   .j-phase { display: none; }
 }
