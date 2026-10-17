@@ -20,7 +20,7 @@ const msg = (title, text) => {
     const t = await store.getShared(token);
     if (!t) return msg('Link no longer active', 'The owner may have stopped sharing this item.');
     render(t);
-    if (t.planned_cost != null) M.fxRefresh().then(() => render(t)).catch(() => {});
+    if (t.planned_cost != null || t.actual_cost != null) M.fxRefresh().then(() => render(t)).catch(() => {});
   } catch (e) {
     console.error(e);
     msg('Could not load', 'Please try again in a moment. If the database was idle for a week, it may be waking up.');
@@ -57,12 +57,13 @@ function render(t) {
         ${fact('Duration', t.duration_weeks != null ? `${t.duration_weeks} weeks` : '')}
         ${fact('End date', M.fmtDate(t.end_date))}
         ${fact('Planned cost', M.fmtMoney(t.planned_cost))}
+        ${fact('Actual cost', M.fmtMoney(t.actual_cost))}
       </div>
       ${section('Description', t.description)}
       ${section('Objective', t.objective)}
       ${section('Expected benefit', t.expected_benefit)}
       ${dev ? `<a class="btn primary" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open development link</a>` : ''}
-      <footer class="share-foot">Shared read-only from ${esc(CONFIG.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${t.planned_cost != null && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
+      <footer class="share-foot">Shared read-only from ${esc(CONFIG.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${(t.planned_cost != null || t.actual_cost != null) && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
     </article>`;
 }
 

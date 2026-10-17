@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261017">
+  <link rel="stylesheet" href="styles.css?v=20261017b">
 </head>
 <body>
 
@@ -185,12 +185,16 @@
           <textarea name="expected_benefit" rows="3" placeholder="Why is it worth doing?"></textarea></label>
 
         <div class="grid-2">
-          <label class="field"><span>Planned cost <em id="currencyNote"></em></span>
+          <label class="field"><span>Planned cost <em class="currency-note"></em></span>
             <input name="planned_cost" type="number" min="0" step="1" inputmode="decimal">
             <small id="costSecondary" class="field-note"></small></label>
-          <label class="field"><span>Development link</span>
-            <input name="dev_link" type="url" placeholder="Notion, Drive, Trello, GitHub…" maxlength="1000"></label>
+          <label class="field"><span>Actual cost <em class="currency-note"></em></span>
+            <input name="actual_cost" type="number" min="0" step="1" inputmode="decimal">
+            <small id="actualSecondary" class="field-note"></small></label>
         </div>
+
+        <label class="field"><span>Development link</span>
+          <input name="dev_link" type="url" placeholder="Notion, Drive, Trello, GitHub…" maxlength="1000"></label>
       </div>
 
       <footer class="drawer-foot">
@@ -244,8 +248,8 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=20261017"></script>
-  <script src="core.js?v=20261017"></script>
-  <script src="app.js?v=20261017"></script>
+  <script src="config.js?v=20261017b"></script>
+  <script src="core.js?v=20261017b"></script>
+  <script src="app.js?v=20261017b"></script>
 </body>
 </html>

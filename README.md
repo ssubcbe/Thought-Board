@@ -77,6 +77,7 @@ app.js       dashboard UI
 share.js     share page
 schema.sql   database table, security rules, share function (paste into Supabase)
 migration-01-percent-complete.sql   one-time update for databases created before % Complete
+migration-02-actual-cost.sql        one-time update for databases created before Actual cost
 ```
 
 **If the page looks like plain unstyled text:** `styles.css` / `app.js` are not next to `index.html`. Check that all files are in the same folder (or the top level of the repo).

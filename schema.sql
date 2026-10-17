@@ -28,6 +28,7 @@ create table if not exists public.thoughts (
   objective        text check (objective   is null or coalesce(array_length(regexp_split_to_array(btrim(objective),   '\s+'), 1), 0) <= 250),
   expected_benefit text,
   planned_cost     numeric(14,2) check (planned_cost is null or planned_cost >= 0),
+  actual_cost      numeric(14,2) check (actual_cost is null or actual_cost >= 0),
 
   dev_link         text,                                   -- link to the actual development
   share_token      uuid unique,                            -- null = not shared
@@ -40,6 +41,9 @@ create table if not exists public.thoughts (
 -- Upgrades for databases created with an earlier version of this file
 alter table public.thoughts add column if not exists percent_complete integer
   check (percent_complete is null or percent_complete between 0 and 100);
+
+alter table public.thoughts add column if not exists actual_cost numeric(14,2)
+  check (actual_cost is null or actual_cost >= 0);
 
 create index if not exists thoughts_user_idx on public.thoughts (user_id, updated_at desc);
 
@@ -76,13 +80,13 @@ returns table (
   title text, icon text, stage text, decision text, priority text, status text,
   percent_complete integer, start_date date, duration_weeks integer, end_date date,
   description text, objective text, expected_benefit text, planned_cost numeric,
-  dev_link text, updated_at timestamptz
+  actual_cost numeric, dev_link text, updated_at timestamptz
 )
 language sql stable security definer set search_path = public as $$
   select t.title, t.icon, t.stage, t.decision, t.priority, t.status,
          t.percent_complete, t.start_date, t.duration_weeks, t.end_date,
          t.description, t.objective, t.expected_benefit, t.planned_cost,
-         t.dev_link, t.updated_at
+         t.actual_cost, t.dev_link, t.updated_at
   from public.thoughts t
   where p_token is not null and t.share_token = p_token
   limit 1;

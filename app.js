@@ -90,6 +90,8 @@ function renderSummary() {
   const projects = all.filter(M.isProject);
   const open = all.filter((t) => !M.isProject(t) && t.decision !== 'dropped').length;
   const cost = projects.reduce((s, t) => s + (+t.planned_cost || 0), 0);
+  const actual = projects.reduce((s, t) => s + (+t.actual_cost || 0), 0);
+  const sub = (n) => (M.fmtSecondary(n) ? `(${M.fmtSecondary(n)})` : '');
   const wip = projects.filter((t) => t.status === 'wip');
   const avg = wip.length ? Math.round(wip.reduce((s, t) => s + (+t.percent_complete || 0), 0) / wip.length) : null;
   // [label, value, sub-text, go-to target]
@@ -98,7 +100,8 @@ function renderSummary() {
     ['Projects', projects.length, '', 'projects'],
     ['In progress', wip.length, avg !== null ? `avg ${avg}%` : '', 'wip'],
     ['Completed', projects.filter((t) => t.status === 'completed').length, '', 'completed'],
-    ['Planned cost · projects', M.fmtPrimary(cost), M.fmtSecondary(cost) ? `(${M.fmtSecondary(cost)})` : '', ''],
+    ['Planned cost · projects', M.fmtPrimary(cost), sub(cost), ''],
+    ['Actual cost · projects', M.fmtPrimary(actual), sub(actual), ''],
   ];
   $('#summary').innerHTML = stats.map(([k, v, sub, go]) => {
     const inner = `<span class="stat-k">${esc(k)}</span><span class="stat-v">${esc(v)}${sub ? ` <small class="stat-sub">${esc(sub)}</small>` : ''}</span>`;
@@ -186,7 +189,8 @@ function emptyState() {
 function cardHtml(t, board) {
   const dev = M.safeUrl(t.dev_link);
   const dates = M.dateLine(t);
-  const cost = M.fmtMoney(t.planned_cost);
+  const plan = M.fmtMoney(t.planned_cost);
+  const act = M.fmtMoney(t.actual_cost);
   const created = M.fmtAdminDate(t.created_at);
   return `<article class="card${M.isProject(t) ? ' is-project' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
     <div class="card-head">
@@ -198,7 +202,8 @@ function cardHtml(t, board) {
     </div>
     ${t.description ? `<p class="card-desc">${esc(t.description)}</p>` : ''}
     ${M.progressHtml(t)}
-    ${dates || cost ? `<div class="card-meta">${dates ? `<span>${esc(dates)}</span>` : ''}${cost ? `<span class="cost">${esc(cost)}</span>` : ''}</div>` : ''}
+    ${dates ? `<div class="card-meta"><span>${esc(dates)}</span></div>` : ''}
+    ${plan || act ? `<div class="card-costs">${plan ? `<span><em>Planned</em> ${esc(plan)}</span>` : ''}${act ? `<span><em>Actual</em> ${esc(act)}</span>` : ''}</div>` : ''}
     <div class="card-foot">
       ${created ? `<span class="admin-meta">Created : ${esc(created)}</span>` : '<span></span>'}
       <span class="card-actions">
@@ -237,7 +242,7 @@ function renderList() {
   main.innerHTML = `<div class="table-wrap"><table class="list">
     <thead><tr>
       <th>Title</th><th>Stage / Status</th><th>Start</th><th class="num">Weeks</th><th>End</th>
-      <th class="num">Planned cost</th><th>Dev link</th><th>Created</th><th></th>
+      <th class="num">Planned cost</th><th class="num">Actual cost</th><th>Dev link</th><th>Created</th><th></th>
     </tr></thead>
     <tbody>${items.map((t) => {
       const dev = M.safeUrl(t.dev_link);
@@ -248,11 +253,12 @@ function renderList() {
         <td class="num">${esc(t.duration_weeks ?? '')}</td>
         <td>${esc(M.fmtDate(t.end_date))}</td>
         <td class="num">${esc(M.fmtMoney(t.planned_cost))}</td>
+        <td class="num">${esc(M.fmtMoney(t.actual_cost))}</td>
         <td>${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open</a>` : ''}</td>
         <td><span class="admin-meta">${esc(M.fmtAdminDate(t.created_at))}</span></td>
         <td><button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share">${t.share_token ? '● Shared' : 'Share'}</button></td>
       </tr>`;
-    }).join('') || '<tr class="none"><td colspan="9">Nothing matches.</td></tr>'}</tbody>
+    }).join('') || '<tr class="none"><td colspan="10">Nothing matches.</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -283,7 +289,7 @@ function openEditor(id) {
   if (!t) return;
   state.editingId = id || null;
   for (const n of ['title', 'icon', 'stage', 'decision', 'priority', 'status', 'percent_complete', 'start_date',
-    'duration_weeks', 'description', 'objective', 'expected_benefit', 'planned_cost', 'dev_link']) {
+    'duration_weeks', 'description', 'objective', 'expected_benefit', 'planned_cost', 'actual_cost', 'dev_link']) {
     fe(n).value = t[n] ?? '';
   }
   if (!fe('stage').value) fe('stage').value = 'initial';
@@ -341,6 +347,8 @@ function syncForm() {
   $('#iconPreview').innerHTML = M.iconHtml({ icon: fe('icon').value, title: fe('title').value }, 'lg');
   const sec = M.fmtSecondary(fe('planned_cost').value);
   $('#costSecondary').textContent = sec ? `≈ ${sec}` : '';
+  const sec2 = M.fmtSecondary(fe('actual_cost').value);
+  $('#actualSecondary').textContent = sec2 ? `≈ ${sec2}` : '';
 }
 
 function readForm() {
@@ -361,6 +369,7 @@ function readForm() {
     objective: v('objective'),
     expected_benefit: v('expected_benefit'),
     planned_cost: num('planned_cost'),
+    actual_cost: num('actual_cost'),
     dev_link: M.normaliseUrl(v('dev_link')),
   };
   d.end_date = M.endDate(d.start_date, d.duration_weeks);
@@ -377,6 +386,7 @@ function validate(d) {
   if (M.isProject(d) && d.status === 'wip' && rawPct !== '' && (+rawPct < 0 || +rawPct > 100 || isNaN(+rawPct))) return '% Complete must be between 0 and 100.';
   if (d.duration_weeks !== null && (d.duration_weeks < 0 || !Number.isFinite(d.duration_weeks))) return 'Duration must be 0 or more weeks.';
   if (d.planned_cost !== null && (d.planned_cost < 0 || !Number.isFinite(d.planned_cost))) return 'Planned cost must be 0 or more.';
+  if (d.actual_cost !== null && (d.actual_cost < 0 || !Number.isFinite(d.actual_cost))) return 'Actual cost must be 0 or more.';
   return null;
 }
 
@@ -592,7 +602,7 @@ function wire() {
   $('#scrim').addEventListener('click', closeEditor);
   $('#deleteBtn').addEventListener('click', onDelete);
   $('#shareFromForm').addEventListener('click', () => openShare(state.editingId));
-  $('#currencyNote').textContent = `in ${M.currencySymbol()}`;
+  $$('.currency-note').forEach((el) => (el.textContent = `in ${M.currencySymbol()}`));
   $('#fxNote').addEventListener('click', openFx);
   $('#fxDlg').addEventListener('click', onFxAction);
   document.addEventListener('keydown', (e) => {

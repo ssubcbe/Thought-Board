@@ -37,7 +37,7 @@ var M = (function () {
   const FIELDS = [
     'title', 'icon', 'stage', 'decision', 'priority', 'status',
     'percent_complete', 'start_date', 'duration_weeks', 'end_date',
-    'description', 'objective', 'expected_benefit', 'planned_cost',
+    'description', 'objective', 'expected_benefit', 'planned_cost', 'actual_cost',
     'dev_link', 'share_token', 'sort_order',
   ];
   
@@ -46,7 +46,7 @@ var M = (function () {
       id: null, title: '', icon: '', stage: 'initial', decision: null,
       priority: null, status: null, percent_complete: null, start_date: null, duration_weeks: null,
       end_date: null, description: '', objective: '', expected_benefit: '',
-      planned_cost: null, dev_link: '', share_token: null, sort_order: 0,
+      planned_cost: null, actual_cost: null, dev_link: '', share_token: null, sort_order: 0,
     };
   }
   
@@ -283,8 +283,8 @@ var createStore = (function () {
     for (const k of FIELDS) {
       if (!(k in d)) continue;
       let v = d[k];
-      if (v === '' && ['decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'share_token'].includes(k)) v = null;
-      if ((k === 'duration_weeks' || k === 'planned_cost' || k === 'percent_complete') && v !== null && v !== undefined) v = Number(v);
+      if (v === '' && ['decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'actual_cost', 'share_token'].includes(k)) v = null;
+      if ((k === 'duration_weeks' || k === 'planned_cost' || k === 'actual_cost' || k === 'percent_complete') && v !== null && v !== undefined) v = Number(v);
       out[k] = v;
     }
     if ('start_date' in out || 'duration_weeks' in out) {
@@ -325,7 +325,7 @@ var createStore = (function () {
           description: 'Raised beds on the terrace with drip irrigation.',
           objective: 'Grow a share of our own greens year round.',
           expected_benefit: 'Fresh produce, lower grocery bill, weekend activity.',
-          planned_cost: 250 }),
+          planned_cost: 250, actual_cost: 95 }),
         mk({ title: 'Sabbatical travel year', stage: 'decision', decision: 'future',
           description: 'Take a long break to travel.' }),
       ];
@@ -361,6 +361,7 @@ var createStore = (function () {
   
     static ok({ data, error }) {
       if (error) {
+        if (/actual_cost/.test(error.message)) throw new Error('Database needs a one-time update: run migration-02-actual-cost.sql in Supabase → SQL Editor.');
         if (/percent_complete/.test(error.message)) throw new Error('Database needs a one-time update: run migration-01-percent-complete.sql in Supabase → SQL Editor.');
         throw new Error(error.message);
       }
