@@ -86,6 +86,15 @@ var M = (function () {
     return d.toLocaleDateString(CONFIG.LOCALE, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
   
+  /** Admin date: "16-Oct-2026" (local time). */
+  function fmtAdminDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const m = d.toLocaleString('en-GB', { month: 'short' });
+    return `${String(d.getDate()).padStart(2, '0')}-${m}-${d.getFullYear()}`;
+  }
+
   /* ── Currency: GBP primary, INR secondary at the latest daily rate ── */
   const CUR1 = CONFIG.PRIMARY_CURRENCY || 'GBP';
   const CUR2 = CONFIG.SECONDARY_CURRENCY || 'INR';
@@ -251,7 +260,7 @@ var M = (function () {
     return s;
   }
   
-  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
