@@ -187,6 +187,7 @@ function cardHtml(t, board) {
   const dev = M.safeUrl(t.dev_link);
   const dates = M.dateLine(t);
   const cost = M.fmtMoney(t.planned_cost);
+  const created = M.fmtAdminDate(t.created_at);
   return `<article class="card${M.isProject(t) ? ' is-project' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
     <div class="card-head">
       ${M.iconHtml(t)}
@@ -199,8 +200,11 @@ function cardHtml(t, board) {
     ${M.progressHtml(t)}
     ${dates || cost ? `<div class="card-meta">${dates ? `<span>${esc(dates)}</span>` : ''}${cost ? `<span class="cost">${esc(cost)}</span>` : ''}</div>` : ''}
     <div class="card-foot">
-      ${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener" title="Open development link">↗ Dev link</a>` : '<span></span>'}
-      <button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share" title="Share">${t.share_token ? '● Shared' : 'Share'}</button>
+      ${created ? `<span class="admin-meta">Created : ${esc(created)}</span>` : '<span></span>'}
+      <span class="card-actions">
+        ${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener" title="Open development link">↗ Dev link</a>` : ''}
+        <button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share" title="Share">${t.share_token ? '● Shared' : 'Share'}</button>
+      </span>
     </div>
   </article>`;
 }
@@ -233,7 +237,7 @@ function renderList() {
   main.innerHTML = `<div class="table-wrap"><table class="list">
     <thead><tr>
       <th>Title</th><th>Stage / Status</th><th>Start</th><th class="num">Weeks</th><th>End</th>
-      <th class="num">Planned cost</th><th>Dev link</th><th></th>
+      <th class="num">Planned cost</th><th>Dev link</th><th>Created</th><th></th>
     </tr></thead>
     <tbody>${items.map((t) => {
       const dev = M.safeUrl(t.dev_link);
@@ -245,9 +249,10 @@ function renderList() {
         <td>${esc(M.fmtDate(t.end_date))}</td>
         <td class="num">${esc(M.fmtMoney(t.planned_cost))}</td>
         <td>${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open</a>` : ''}</td>
+        <td><span class="admin-meta">${esc(M.fmtAdminDate(t.created_at))}</span></td>
         <td><button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share">${t.share_token ? '● Shared' : 'Share'}</button></td>
       </tr>`;
-    }).join('') || '<tr class="none"><td colspan="8">Nothing matches.</td></tr>'}</tbody>
+    }).join('') || '<tr class="none"><td colspan="9">Nothing matches.</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -283,6 +288,9 @@ function openEditor(id) {
   }
   if (!fe('stage').value) fe('stage').value = 'initial';
   $('#drawerTitle').textContent = id ? t.title || 'Edit' : 'New thought';
+  const created = id ? M.fmtAdminDate(t.created_at) : '';
+  $('#createdOn').textContent = created ? `Created : ${created}` : '';
+  $('#createdOn').hidden = !created;
   $('#deleteBtn').hidden = !id;
   $('#shareFromForm').hidden = !id;
   syncForm();

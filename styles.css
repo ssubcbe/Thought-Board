@@ -542,3 +542,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .journey-track { flex: 1 1 auto; min-width: 0; padding: 0 22px; }
   .j-phase { display: none; }
 }
+
+/* ── Admin meta (Created on) ── */
+:root { --admin: #E5484D; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --admin: #FF8A80; } }
+:root[data-theme="dark"] { --admin: #FF8A80; }
+.drawer-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.admin-meta { font-size: 11px; color: var(--admin); white-space: nowrap; letter-spacing: .01em; }
+.card-actions { display: inline-flex; align-items: center; gap: 12px; }
+.card-foot .admin-meta { font-size: 10.5px; }
