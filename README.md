@@ -53,6 +53,9 @@ Commit. Reload your site → sign in with the user from step 3.
 | Stages | Initial → Data Gathering → Review → Decision |
 | Decision | Proceed · Dropped · For Future Consideration · On-Hold (shown only at the Decision stage) |
 | Project | A thought whose decision is **Proceed**. Priority (High/Medium/Low) and Status (Not Started/WIP/Completed/On-Hold) become active. |
+| % Complete | Appears next to Status when Status is **WIP** (0–100, shown as a progress bar on the card). Completed sets it to 100; On-Hold keeps the last value; Not Started clears it. |
+| Process map | Static strip above the boxes: Start → Initial → Data Gathering → Review → Decision (side branch: Dropped · Future · On-Hold) → **Proceed** gate → Not Started → WIP → Completed (Finish). Dotted line = thought, solid green = project. Compact version on phones. |
+| Summary boxes | Click **Open thoughts** → Pipeline board · **Projects** → Projects by Status · **In progress** / **Completed** → that column, highlighted. |
 | End date | Start date + Duration (weeks), calculated automatically |
 | Description / Objective | Max 250 words each (live counter) |
 | Icon | Square slot: an emoji, a square image URL, or the title's initials by default |
@@ -73,6 +76,7 @@ core.js      stages, decisions, statuses, helpers + data layer (Local or Supabas
 app.js       dashboard UI
 share.js     share page
 schema.sql   database table, security rules, share function (paste into Supabase)
+migration-01-percent-complete.sql   one-time update for databases created before % Complete
 ```
 
 **If the page looks like plain unstyled text:** `styles.css` / `app.js` are not next to `index.html`. Check that all files are in the same folder (or the top level of the repo).
