@@ -431,7 +431,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
 }
-.journey-track { --ly: 34px; position: relative; display: flex; height: 100%; padding: 0 12px; min-width: 760px; }
+.journey { display: flex; }
+.journey-track { --ly: 34px; position: relative; display: flex; height: 100%; padding: 0 12px; min-width: 760px; flex: 1 1 auto; }
 .j-stop { position: relative; flex: 1 1 0; min-width: 0; }
 .j-stop.gate { flex: 0 0 108px; }
 
@@ -518,4 +519,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .j-node svg { width: 13px; height: 13px; }
   .j-node { width: 12px; height: 12px; }
   .j-top { top: 5px; font-size: 8.5px; }
+}
+
+/* Side labels THOUGHT / PROJECT in the open space; line compressed in the middle */
+.j-side { display: none; }
+.j-phase { left: 100%; }            /* sits over the segment boundary (narrow screens only) */
+@media (min-width: 1000px) {
+  .j-side {
+    display: flex; flex: 1 1 0; min-width: 120px; align-items: center; justify-content: center;
+  }
+  .j-side span {
+    font: 700 15px/1 var(--font-display); letter-spacing: .2em; text-transform: uppercase;
+    display: inline-flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .j-side span::after { content: ''; width: 42px; height: 3px; border-radius: 2px; }
+  .j-side.left { background: var(--surface-2); border-right: 1px solid var(--line); }
+  .j-side.left span { color: var(--muted); }
+  .j-side.left span::after { background: repeating-linear-gradient(90deg, var(--line-strong) 0 5px, transparent 5px 10px); }
+  .j-side.right { background: var(--accent-soft); border-left: 1px solid var(--line); }
+  .j-side.right span { color: var(--accent); }
+  .j-side.right span::after { background: var(--accent); }
+  .journey-track { flex: 0 1 880px; min-width: 760px; padding: 0 22px; }
+  .j-phase { display: none; }
 }
