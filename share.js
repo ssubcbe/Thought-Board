@@ -48,6 +48,7 @@ function render(t) {
       </header>
       ${M.progressHtml(t, 'lg')}
       <div class="facts">
+        ${fact('Category', M.label(M.CATEGORIES, t.category))}
         ${fact('Stage', M.label(M.STAGES, t.stage))}
         ${t.stage === 'decision' ? fact('Decision', t.decision ? M.label(M.DECISIONS, t.decision) : 'Awaiting decision') : ''}
         ${proj ? fact('Priority', M.label(M.PRIORITIES, t.priority)) : ''}
@@ -60,8 +61,6 @@ function render(t) {
         ${fact('Actual cost', M.fmtMoney(t.actual_cost))}
       </div>
       ${section('Description', t.description)}
-      ${section('Objective', t.objective)}
-      ${section('Expected benefit', t.expected_benefit)}
       ${dev ? `<a class="btn primary" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open development link</a>` : ''}
       <footer class="share-foot">Shared read-only from ${esc(CONFIG.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${(t.planned_cost != null || t.actual_cost != null) && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
     </article>`;

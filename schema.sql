@@ -10,6 +10,7 @@ create table if not exists public.thoughts (
 
   title            text not null check (char_length(title) between 1 and 120),
   icon             text,                                   -- emoji or square image URL
+  category         text check (category is null or category in ('client_work','family_wellbeing','finance','home_improvements','personal','revenue')),
 
   stage            text not null default 'initial'
                    check (stage in ('initial','data_gathering','review','decision')),
@@ -45,6 +46,9 @@ alter table public.thoughts add column if not exists percent_complete integer
 alter table public.thoughts add column if not exists actual_cost numeric(14,2)
   check (actual_cost is null or actual_cost >= 0);
 
+alter table public.thoughts add column if not exists category text
+  check (category is null or category in ('client_work','family_wellbeing','finance','home_improvements','personal','revenue'));
+
 create index if not exists thoughts_user_idx on public.thoughts (user_id, updated_at desc);
 
 -- Keep updated_at fresh
@@ -77,15 +81,15 @@ grant select, insert, update, delete on public.thoughts to authenticated;
 drop function if exists public.get_shared_thought(uuid);
 create function public.get_shared_thought(p_token uuid)
 returns table (
-  title text, icon text, stage text, decision text, priority text, status text,
+  title text, icon text, category text, stage text, decision text, priority text, status text,
   percent_complete integer, start_date date, duration_weeks integer, end_date date,
-  description text, objective text, expected_benefit text, planned_cost numeric,
+  description text, planned_cost numeric,
   actual_cost numeric, dev_link text, updated_at timestamptz
 )
 language sql stable security definer set search_path = public as $$
-  select t.title, t.icon, t.stage, t.decision, t.priority, t.status,
+  select t.title, t.icon, t.category, t.stage, t.decision, t.priority, t.status,
          t.percent_complete, t.start_date, t.duration_weeks, t.end_date,
-         t.description, t.objective, t.expected_benefit, t.planned_cost,
+         t.description, t.planned_cost,
          t.actual_cost, t.dev_link, t.updated_at
   from public.thoughts t
   where p_token is not null and t.share_token = p_token

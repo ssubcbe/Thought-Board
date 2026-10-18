@@ -18,6 +18,16 @@ var M = (function () {
     { id: 'on_hold', label: 'On-Hold' },
   ];
   
+  // Categories — shown in ascending (A→Z) order
+  const CATEGORIES = [
+    { id: 'client_work',       label: 'Client Work' },
+    { id: 'family_wellbeing',  label: 'Family & Wellbeing' },
+    { id: 'finance',           label: 'Finance' },
+    { id: 'home_improvements', label: 'Home Improvements' },
+    { id: 'personal',          label: 'Personal' },
+    { id: 'revenue',           label: 'Revenue' },
+  ].sort((a, b) => a.label.localeCompare(b.label));
+
   const PRIORITIES = [
     { id: 'high',   label: 'High' },
     { id: 'medium', label: 'Medium' },
@@ -35,17 +45,17 @@ var M = (function () {
   
   // Columns that are saved to the database
   const FIELDS = [
-    'title', 'icon', 'stage', 'decision', 'priority', 'status',
+    'title', 'icon', 'category', 'stage', 'decision', 'priority', 'status',
     'percent_complete', 'start_date', 'duration_weeks', 'end_date',
-    'description', 'objective', 'expected_benefit', 'planned_cost', 'actual_cost',
+    'description', 'planned_cost', 'actual_cost',
     'dev_link', 'share_token', 'sort_order',
   ];
   
   function blank() {
     return {
-      id: null, title: '', icon: '', stage: 'initial', decision: null,
+      id: null, title: '', icon: '', category: '', stage: 'initial', decision: null,
       priority: null, status: null, percent_complete: null, start_date: null, duration_weeks: null,
-      end_date: null, description: '', objective: '', expected_benefit: '',
+      end_date: null, description: '',
       planned_cost: null, actual_cost: null, dev_link: '', share_token: null, sort_order: 0,
     };
   }
@@ -260,7 +270,7 @@ var M = (function () {
     return s;
   }
   
-  return { STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { CATEGORIES, STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
@@ -283,7 +293,7 @@ var createStore = (function () {
     for (const k of FIELDS) {
       if (!(k in d)) continue;
       let v = d[k];
-      if (v === '' && ['decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'actual_cost', 'share_token'].includes(k)) v = null;
+      if (v === '' && ['category', 'decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'actual_cost', 'share_token'].includes(k)) v = null;
       if ((k === 'duration_weeks' || k === 'planned_cost' || k === 'actual_cost' || k === 'percent_complete') && v !== null && v !== undefined) v = Number(v);
       out[k] = v;
     }
@@ -315,18 +325,15 @@ var createStore = (function () {
       const mk = (o) => ({ ...blank(), ...o, id: uid(), created_at: now, updated_at: now,
         end_date: endDate(o.start_date, o.duration_weeks) });
       const rows = [
-        mk({ title: 'Write a family recipe book', icon: '📖', stage: 'data_gathering',
-          description: 'Collect recipes from relatives and turn them into a small printed book.',
-          objective: 'Preserve family recipes for the next generation.' }),
-        mk({ title: 'Learn watercolour painting', icon: '🎨', stage: 'review',
+        mk({ title: 'Write a family recipe book', icon: '📖', category: 'family_wellbeing', stage: 'data_gathering',
+          description: 'Collect recipes from relatives and turn them into a small printed book.', }),
+        mk({ title: 'Learn watercolour painting', icon: '🎨', category: 'personal', stage: 'review',
           description: 'Weekend classes or an online course.', planned_cost: 80 }),
-        mk({ title: 'Home vegetable garden', icon: '🌱', stage: 'decision', decision: 'proceed',
+        mk({ title: 'Home vegetable garden', icon: '🌱', category: 'home_improvements', stage: 'decision', decision: 'proceed',
           priority: 'high', status: 'wip', percent_complete: 40, start_date: today, duration_weeks: 8,
           description: 'Raised beds on the terrace with drip irrigation.',
-          objective: 'Grow a share of our own greens year round.',
-          expected_benefit: 'Fresh produce, lower grocery bill, weekend activity.',
           planned_cost: 250, actual_cost: 95 }),
-        mk({ title: 'Sabbatical travel year', stage: 'decision', decision: 'future',
+        mk({ title: 'Sabbatical travel year', category: 'finance', stage: 'decision', decision: 'future',
           description: 'Take a long break to travel.' }),
       ];
       this.write(rows);
@@ -361,6 +368,7 @@ var createStore = (function () {
   
     static ok({ data, error }) {
       if (error) {
+        if (/category/.test(error.message)) throw new Error('Database needs a one-time update: run migration-03-category.sql in Supabase → SQL Editor.');
         if (/actual_cost/.test(error.message)) throw new Error('Database needs a one-time update: run migration-02-actual-cost.sql in Supabase → SQL Editor.');
         if (/percent_complete/.test(error.message)) throw new Error('Database needs a one-time update: run migration-01-percent-complete.sql in Supabase → SQL Editor.');
         throw new Error(error.message);

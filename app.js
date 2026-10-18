@@ -8,10 +8,22 @@ const { esc } = M;
 
 /* ───────────── State ───────────── */
 const PREFS_KEY = 'thoughtboard.prefs';
-const state = { items: [], q: '', editingId: null, shareId: null, view: 'board', board: 'pipeline', filter: 'all' };
+const state = {
+  items: [], q: '', editingId: null, shareId: null, view: 'board', board: 'pipeline', filter: 'all',
+  dash: { cat: '', start: '', from: '', to: '' },   // dashboard filters (Category, Start date)
+  sort: { key: '', dir: 0 },                        // list sort: dir 1 = A→Z, -1 = Z→A
+  colf: {},                                          // list column filters
+};
 try { Object.assign(state, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')); } catch { /* ignore */ }
+state.dash = { cat: '', start: '', from: '', to: '', ...(state.dash || {}) };
+state.sort = state.sort || { key: '', dir: 0 };
+state.colf = {};
 const savePrefs = () => {
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ view: state.view, board: state.board, filter: state.filter })); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      view: state.view, board: state.board, filter: state.filter, dash: state.dash, sort: state.sort,
+    }));
+  } catch { /* ignore */ }
 };
 let store;
 
@@ -77,7 +89,50 @@ function render() {
   if (state.view === 'list') renderList(); else renderBoard();
 }
 
+/* ───────────── Dashboard filters (Category · Start date) ───────────── */
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function startRange(preset) {
+  const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
+  switch (preset) {
+    case 'past':       return [null, isoDay(new Date(y, m, now.getDate() - 1))];
+    case 'this_month': return [isoDay(new Date(y, m, 1)), isoDay(new Date(y, m + 1, 0))];
+    case 'next_3m':    return [isoDay(now), isoDay(new Date(y, m + 3, now.getDate()))];
+    case 'this_year':  return [`${y}-01-01`, `${y}-12-31`];
+    case 'next_year':  return [`${y + 1}-01-01`, `${y + 1}-12-31`];
+    case 'custom':     return [state.dash.from || null, state.dash.to || null];
+    default:           return [null, null];
+  }
+}
+function passesDash(t) {
+  const f = state.dash;
+  if (f.cat === 'none' ? t.category : f.cat && t.category !== f.cat) return false;
+  if (!f.start) return true;
+  const sd = t.start_date ? String(t.start_date).slice(0, 10) : '';
+  if (f.start === 'none') return !sd;
+  if (!sd) return false;
+  const [from, to] = startRange(f.start);
+  return (!from || sd >= from) && (!to || sd <= to);
+}
+const dashActive = () => !!(state.dash.cat || state.dash.start);
+const visible = () => state.items.filter(passesDash);
+
+function renderFilters() {
+  const f = state.dash;
+  const cat = $('#fCat');
+  if (!cat.options.length) {
+    cat.innerHTML = '<option value="">All</option>'
+      + M.CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join('')
+      + '<option value="none">Uncategorised</option>';
+  }
+  cat.value = f.cat; $('#fStart').value = f.start;
+  $('#fFrom').value = f.from; $('#fTo').value = f.to;
+  $('#fRange').hidden = f.start !== 'custom';
+  $('#fClear').hidden = !dashActive();
+  cat.classList.toggle('active', !!f.cat); $('#fStart').classList.toggle('active', !!f.start);
+}
+
 function renderToolbar() {
+  renderFilters();
   $$('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === state.view));
   $$('#boardSeg button').forEach((b) => b.classList.toggle('on', b.dataset.board === state.board));
   $$('#filterSeg button').forEach((b) => b.classList.toggle('on', b.dataset.filter === state.filter));
@@ -86,7 +141,7 @@ function renderToolbar() {
 }
 
 function renderSummary() {
-  const all = state.items;
+  const all = visible();
   const projects = all.filter(M.isProject);
   const open = all.filter((t) => !M.isProject(t) && t.decision !== 'dropped').length;
   const cost = projects.reduce((s, t) => s + (+t.planned_cost || 0), 0);
@@ -174,7 +229,7 @@ async function onFxAction(e) {
 function matches(t) {
   const q = state.q.trim().toLowerCase();
   if (!q) return true;
-  return [t.title, t.description, t.objective, t.expected_benefit].some((s) => (s || '').toLowerCase().includes(q));
+  return [t.title, t.description, M.label(M.CATEGORIES, t.category)].some((s) => (s || '').toLowerCase().includes(q));
 }
 
 function emptyState() {
@@ -196,6 +251,7 @@ function cardHtml(t, board) {
     <div class="card-head">
       ${M.iconHtml(t)}
       <div class="card-title">
+        ${t.category ? `<span class="card-cat">${esc(M.label(M.CATEGORIES, t.category))}</span>` : ''}
         <h3>${esc(t.title)}</h3>
         <div class="chips">${M.chipsHtml(t, { hideStage: board === 'pipeline' })}</div>
       </div>
@@ -218,8 +274,8 @@ function renderBoard() {
   const main = $('#main');
   if (!state.items.length) { main.innerHTML = emptyState(); return; }
   const b = BOARDS[state.board] || BOARDS.pipeline;
-  const items = state.items.filter((t) => b.include(t) && matches(t));
-  main.innerHTML = `<p class="board-hint">${esc(b.hint)}</p>
+  const items = visible().filter((t) => b.include(t) && matches(t));
+  main.innerHTML = `<p class="board-hint">${esc(b.hint)}${dashActive() ? ' <b class="filtered-note">· Filtered</b>' : ''}</p>
   <div class="board" style="--cols:${b.columns.length}">
     ${b.columns.map((col) => {
       const cards = items.filter((t) => b.key(t) === col.id);
@@ -233,33 +289,145 @@ function renderBoard() {
   </div>`;
 }
 
+/* ───────────── List view: sort + filter every column ─────────────
+   type: text  → "contains"
+         pick  → dropdown of the values present
+         num   → contains, or  >100  <=50  =8
+         date  → contains (e.g. "Nov 2026"), or  >1 Nov 2026  <=2026-12-31          */
+const idx = (list) => (id) => { const i = list.findIndex((x) => x.id === id); return i < 0 ? null : i; };
+const LIST_COLS = [
+  { key: 'title', label: 'Title', type: 'text', val: (t) => t.title || '',
+    cell: (t) => `<div class="t-title">${M.iconHtml(t, 'sm')}<span>${esc(t.title)}</span></div>` },
+  { key: 'category', label: 'Category', type: 'pick', val: (t) => M.label(M.CATEGORIES, t.category) },
+  { key: 'stage', label: 'Stage', type: 'pick', val: (t) => M.label(M.STAGES, t.stage), order: (t) => idx(M.STAGES)(t.stage) },
+  { key: 'decision', label: 'Decision', type: 'pick',
+    val: (t) => (t.stage === 'decision' ? (t.decision ? M.label(M.DECISIONS, t.decision) : 'Awaiting decision') : ''),
+    cell: (t) => (t.stage === 'decision' ? `<span class="chip d-${t.decision || 'none'}">${esc(t.decision ? M.label(M.DECISIONS, t.decision) : 'Awaiting decision')}</span>` : '') },
+  { key: 'status', label: 'Status', type: 'pick', val: (t) => (M.isProject(t) ? M.label(M.STATUSES, t.status) : ''),
+    order: (t) => (M.isProject(t) ? idx(M.STATUSES)(t.status) : null),
+    cell: (t) => (M.isProject(t) && t.status ? `<span class="chip s-${t.status}">${esc(M.label(M.STATUSES, t.status))}</span>` : '') },
+  { key: 'priority', label: 'Priority', type: 'pick', val: (t) => (M.isProject(t) ? M.label(M.PRIORITIES, t.priority) : ''),
+    order: (t) => (M.isProject(t) ? idx(M.PRIORITIES)(t.priority) : null),
+    cell: (t) => (M.isProject(t) && t.priority ? `<span class="chip p-${t.priority}">${esc(M.label(M.PRIORITIES, t.priority))}</span>` : '') },
+  { key: 'pct', label: '%', type: 'num', num: true,
+    val: (t) => (M.isProject(t) && t.percent_complete != null && ['wip', 'on_hold', 'completed'].includes(t.status) ? +t.percent_complete : null),
+    show: (v) => (v == null ? '' : v + '%') },
+  { key: 'start', label: 'Start', type: 'date', val: (t) => (t.start_date ? String(t.start_date).slice(0, 10) : null), show: (v) => M.fmtDate(v) },
+  { key: 'weeks', label: 'Weeks', type: 'num', num: true, val: (t) => (t.duration_weeks == null || t.duration_weeks === '' ? null : +t.duration_weeks) },
+  { key: 'end', label: 'End', type: 'date', val: (t) => (t.end_date ? String(t.end_date).slice(0, 10) : null), show: (v) => M.fmtDate(v) },
+  { key: 'planned', label: 'Planned cost', type: 'num', num: true, val: (t) => (t.planned_cost == null ? null : +t.planned_cost), show: (v) => M.fmtMoney(v),
+    cell: (t) => moneyCell(t.planned_cost) },
+  { key: 'actual', label: 'Actual cost', type: 'num', num: true, val: (t) => (t.actual_cost == null ? null : +t.actual_cost), show: (v) => M.fmtMoney(v),
+    cell: (t) => moneyCell(t.actual_cost) },
+  { key: 'dev', label: 'Dev link', type: 'pick', val: (t) => (M.safeUrl(t.dev_link) ? 'Has link' : ''),
+    cell: (t) => { const d = M.safeUrl(t.dev_link); return d ? `<a class="mini" href="${esc(d)}" target="_blank" rel="noopener">↗ Open</a>` : ''; } },
+  { key: 'created', label: 'Created', type: 'date', val: (t) => (t.created_at ? isoDay(new Date(t.created_at)) : null),
+    show: (v) => (v ? M.fmtAdminDate(v + 'T00:00:00') : ''), cls: 'admin-meta' },
+];
+function moneyCell(n) {
+  if (n == null || n === '') return '';
+  const sec = M.fmtSecondary(n);
+  return `<span class="money">${esc(M.fmtPrimary(n))}${sec ? `<small>${esc(sec)}</small>` : ''}</span>`;
+}
+const colByKey = Object.fromEntries(LIST_COLS.map((c) => [c.key, c]));
+const shown = (c, t) => { const v = c.val(t); return c.show ? c.show(v) : (v == null ? '' : String(v)); };
+
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+function parseDateInput(s) {
+  s = s.trim().toLowerCase();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[\s\-\/\.]+([a-z]{3})[a-z]*[\s\-\/\.,]+(\d{4})$/);
+  if (m && MONTHS[m[2]]) return `${m[3]}-${String(MONTHS[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[\-\/\.](\d{1,2})[\-\/\.](\d{4})$/); // dd-mm-yyyy
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+const OPS = { '>': (a, b) => a > b, '>=': (a, b) => a >= b, '<': (a, b) => a < b, '<=': (a, b) => a <= b, '=': (a, b) => a === b };
+
+function passesCol(c, t, f) {
+  if (!f) return true;
+  const text = shown(c, t);
+  if (c.type === 'pick') return f === '(blank)' ? !text : text === f;
+  const m = f.match(/^\s*(>=|<=|>|<|=)\s*(.+)$/);
+  if (m && c.type === 'num') {
+    const n = parseFloat(m[2].replace(/[£₹,\s%]/g, '')); const v = c.val(t);
+    return !isNaN(n) && v != null && OPS[m[1]](v, n);
+  }
+  if (m && c.type === 'date') {
+    const d = parseDateInput(m[2]); const v = c.val(t);
+    return !!d && v != null && OPS[m[1]](v, d);
+  }
+  return text.toLowerCase().includes(f.trim().toLowerCase());
+}
+
+function listRows() {
+  let items = visible().filter(matches);
+  if (state.filter === 'thoughts') items = items.filter((t) => !M.isProject(t));
+  if (state.filter === 'projects') items = items.filter(M.isProject);
+  for (const [k, f] of Object.entries(state.colf)) {
+    const c = colByKey[k]; if (c && f) items = items.filter((t) => passesCol(c, t, f));
+  }
+  const { key, dir } = state.sort; const c = colByKey[key];
+  if (c && dir) {
+    const sv = (t) => { if (c.order) return c.order(t); const v = c.val(t); return v === '' ? null : v; };
+    items = items.map((t, i) => ({ t, i, v: sv(t) })).sort((a, b) => {
+      if (a.v == null && b.v == null) return a.i - b.i;
+      if (a.v == null) return 1; if (b.v == null) return -1;   // blanks always last
+      const r = typeof a.v === 'number' && typeof b.v === 'number' ? a.v - b.v : String(a.v).localeCompare(String(b.v), undefined, { sensitivity: 'base', numeric: true });
+      return (r || a.i - b.i) * (r ? dir : 1);
+    }).map((x) => x.t);
+  }
+  return items;
+}
+
+function rowHtml(t) {
+  return `<tr data-id="${esc(t.id)}" tabindex="0">
+    ${LIST_COLS.map((c) => `<td class="${c.num ? 'num' : ''}${c.type === 'date' || c.num ? ' nowrap' : ''} c-${c.key}">${c.cell ? c.cell(t) : `<span class="${c.cls || ''}">${esc(shown(c, t))}</span>`}</td>`).join('')}
+    <td><button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share">${t.share_token ? '● Shared' : 'Share'}</button></td>
+  </tr>`;
+}
+
+function renderListBody() {
+  const rows = listRows();
+  const tb = $('#listBody'); if (!tb) return;
+  tb.innerHTML = rows.map(rowHtml).join('') || `<tr class="none"><td colspan="${LIST_COLS.length + 1}">Nothing matches these filters.</td></tr>`;
+  const base = visible().length;
+  const anyCol = Object.values(state.colf).some(Boolean);
+  $('#listInfo').innerHTML = `<span>Showing <b>${rows.length}</b> of ${base}${dashActive() ? ' (dashboard filters on)' : ''}</span>`
+    + (anyCol || state.sort.dir ? ` <button type="button" class="mini clear" data-list="reset">✕ Clear column filters & sort</button>` : '');
+}
+
 function renderList() {
   const main = $('#main');
   if (!state.items.length) { main.innerHTML = emptyState(); return; }
-  let items = state.items.filter(matches);
-  if (state.filter === 'thoughts') items = items.filter((t) => !M.isProject(t));
-  if (state.filter === 'projects') items = items.filter(M.isProject);
-  main.innerHTML = `<div class="table-wrap"><table class="list">
-    <thead><tr>
-      <th>Title</th><th>Stage / Status</th><th>Start</th><th class="num">Weeks</th><th>End</th>
-      <th class="num">Planned cost</th><th class="num">Actual cost</th><th>Dev link</th><th>Created</th><th></th>
-    </tr></thead>
-    <tbody>${items.map((t) => {
-      const dev = M.safeUrl(t.dev_link);
-      return `<tr data-id="${esc(t.id)}" tabindex="0">
-        <td><div class="t-title">${M.iconHtml(t, 'sm')}<span>${esc(t.title)}</span></div></td>
-        <td><div class="chips">${M.chipsHtml(t)}</div></td>
-        <td>${esc(M.fmtDate(t.start_date))}</td>
-        <td class="num">${esc(t.duration_weeks ?? '')}</td>
-        <td>${esc(M.fmtDate(t.end_date))}</td>
-        <td class="num">${esc(M.fmtMoney(t.planned_cost))}</td>
-        <td class="num">${esc(M.fmtMoney(t.actual_cost))}</td>
-        <td>${dev ? `<a class="mini" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open</a>` : ''}</td>
-        <td><span class="admin-meta">${esc(M.fmtAdminDate(t.created_at))}</span></td>
-        <td><button type="button" class="mini${t.share_token ? ' shared' : ''}" data-act="share">${t.share_token ? '● Shared' : 'Share'}</button></td>
-      </tr>`;
-    }).join('') || '<tr class="none"><td colspan="10">Nothing matches.</td></tr>'}</tbody>
+  const pool = visible().filter(matches);
+  const head = LIST_COLS.map((c) => {
+    const on = state.sort.key === c.key && state.sort.dir;
+    const arrow = on ? (state.sort.dir > 0 ? '▲' : '▼') : '↕';
+    return `<th class="${c.num ? 'num' : ''}${on ? ' sorted' : ''}"><button type="button" class="th-sort" data-sort="${c.key}" title="Sort by ${esc(c.label)}">${esc(c.label)} <span class="arrow">${arrow}</span></button></th>`;
+  }).join('');
+  const filt = LIST_COLS.map((c) => {
+    const v = state.colf[c.key] || '';
+    if (c.type === 'pick') {
+      const vals = [...new Set(pool.map((t) => shown(c, t)))];
+      const opts = vals.filter(Boolean).sort((a, b) => {
+        if (!c.order) return a.localeCompare(b);
+        const ta = pool.find((t) => shown(c, t) === a); const tb = pool.find((t) => shown(c, t) === b);
+        return (c.order(ta) ?? 99) - (c.order(tb) ?? 99);
+      });
+      if (vals.includes('')) opts.push('(blank)');
+      return `<th><select class="col-filter${v ? ' active' : ''}" data-colf="${c.key}"><option value="">All</option>${opts.map((o) => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></th>`;
+    }
+    const ph = c.type === 'num' ? 'e.g. >100' : c.type === 'date' ? 'e.g. Nov 2026' : 'Contains…';
+    return `<th><input class="col-filter${v ? ' active' : ''}" data-colf="${c.key}" value="${esc(v)}" placeholder="${ph}" aria-label="Filter ${esc(c.label)}"></th>`;
+  }).join('');
+  main.innerHTML = `<p class="list-info" id="listInfo"></p>
+  <div class="table-wrap"><table class="list">
+    <thead><tr>${head}<th></th></tr><tr class="filter-row">${filt}<th></th></tr></thead>
+    <tbody id="listBody"></tbody>
   </table></div>`;
+  renderListBody();
 }
 
 /* ───────────── Saving ───────────── */
@@ -288,8 +456,8 @@ function openEditor(id) {
   const t = id ? find(id) : M.blank();
   if (!t) return;
   state.editingId = id || null;
-  for (const n of ['title', 'icon', 'stage', 'decision', 'priority', 'status', 'percent_complete', 'start_date',
-    'duration_weeks', 'description', 'objective', 'expected_benefit', 'planned_cost', 'actual_cost', 'dev_link']) {
+  for (const n of ['title', 'icon', 'category', 'stage', 'decision', 'priority', 'status', 'percent_complete', 'start_date',
+    'duration_weeks', 'description', 'planned_cost', 'actual_cost', 'dev_link']) {
     fe(n).value = t[n] ?? '';
   }
   if (!fe('stage').value) fe('stage').value = 'initial';
@@ -315,7 +483,8 @@ function closeEditor() {
 
 function syncForm() {
   const isDecision = fe('stage').value === 'decision';
-  $('#decisionField').hidden = !isDecision;
+  $('#decisionRow').hidden = !isDecision;
+  fe('category').classList.toggle('empty', !fe('category').value);
   const proj = isDecision && fe('decision').value === 'proceed';
   fe('priority').disabled = !proj;
   fe('status').disabled = !proj;
@@ -358,6 +527,7 @@ function readForm() {
   const d = {
     title: v('title'),
     icon: v('icon'),
+    category: v('category') || null,
     stage,
     decision: stage === 'decision' ? v('decision') || null : null,
     priority: v('priority') || null,
@@ -366,8 +536,6 @@ function readForm() {
     start_date: v('start_date') || null,
     duration_weeks: num('duration_weeks'),
     description: v('description'),
-    objective: v('objective'),
-    expected_benefit: v('expected_benefit'),
     planned_cost: num('planned_cost'),
     actual_cost: num('actual_cost'),
     dev_link: M.normaliseUrl(v('dev_link')),
@@ -379,8 +547,8 @@ function readForm() {
 
 function validate(d) {
   if (!d.title) return 'Please give it a title.';
+  if (!d.category) return 'Please choose a Category.';
   if (M.wordCount(d.description) > M.WORD_LIMIT) return `Description is over ${M.WORD_LIMIT} words.`;
-  if (M.wordCount(d.objective) > M.WORD_LIMIT) return `Objective is over ${M.WORD_LIMIT} words.`;
   if (d.dev_link && !M.safeUrl(d.dev_link)) return 'Development link must be a web address.';
   const rawPct = fe('percent_complete').value.trim();
   if (M.isProject(d) && d.status === 'wip' && rawPct !== '' && (+rawPct < 0 || +rawPct > 100 || isNaN(+rawPct))) return '% Complete must be between 0 and 100.';
@@ -394,7 +562,10 @@ async function onSave(e) {
   e.preventDefault();
   const d = readForm();
   const err = validate(d);
-  if (err) return toast(err, true);
+  if (err) {
+    if (!d.category && d.title) { fe('category').focus(); fe('category').classList.add('invalid'); }
+    return toast(err, true);
+  }
   const btn = F.querySelector('[type=submit]');
   btn.disabled = true;
   try {
@@ -523,6 +694,40 @@ function wire() {
     err.hidden = true;
     try { await store.signIn(f.email.value.trim(), f.password.value); await enterApp(); }
     catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  });
+
+  // Category options in the editor (A→Z)
+  fe('category').innerHTML = '<option value="">Choose a category…</option>'
+    + M.CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join('');
+  fe('category').addEventListener('change', () => fe('category').classList.remove('invalid'));
+
+  // Dashboard filters
+  const setDash = (patch) => { Object.assign(state.dash, patch); state.colf = state.colf || {}; savePrefs(); render(); };
+  $('#fCat').addEventListener('change', (e) => setDash({ cat: e.target.value }));
+  $('#fStart').addEventListener('change', (e) => setDash({ start: e.target.value }));
+  $('#fFrom').addEventListener('change', (e) => setDash({ from: e.target.value }));
+  $('#fTo').addEventListener('change', (e) => setDash({ to: e.target.value }));
+  $('#fClear').addEventListener('click', () => setDash({ cat: '', start: '', from: '', to: '' }));
+
+  // List: sorting + column filters
+  $('#main').addEventListener('click', (e) => {
+    const sb = e.target.closest('[data-sort]');
+    if (sb) {
+      e.stopPropagation();
+      const k = sb.dataset.sort; const s0 = state.sort;
+      state.sort = s0.key !== k ? { key: k, dir: 1 } : s0.dir === 1 ? { key: k, dir: -1 } : { key: '', dir: 0 };
+      savePrefs(); renderList(); return;
+    }
+    if (e.target.closest('[data-list="reset"]')) { e.stopPropagation(); state.colf = {}; state.sort = { key: '', dir: 0 }; savePrefs(); renderList(); return; }
+    if (e.target.closest('.filter-row')) e.stopPropagation();
+  }, true);
+  $('#main').addEventListener('input', (e) => {
+    const f = e.target.closest('input[data-colf]'); if (!f) return;
+    state.colf[f.dataset.colf] = f.value; f.classList.toggle('active', !!f.value); renderListBody();
+  });
+  $('#main').addEventListener('change', (e) => {
+    const f = e.target.closest('select[data-colf]'); if (!f) return;
+    state.colf[f.dataset.colf] = f.value; f.classList.toggle('active', !!f.value); renderListBody();
   });
 
   // Summary tiles

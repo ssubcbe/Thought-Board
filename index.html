@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261017b">
+  <link rel="stylesheet" href="styles.css?v=20261018">
 </head>
 <body>
 
@@ -91,10 +91,30 @@
         <button type="button" data-filter="thoughts">Thoughts</button>
         <button type="button" data-filter="projects">Projects</button>
       </div>
-      <span class="mode-note">
-        <button type="button" id="fxNote" class="fx-note" title="Exchange rate used for ₹ amounts"></button>
-        <span id="modeNote"></span>
-      </span>
+      <div class="toolbar-right">
+        <div class="filters" role="group" aria-label="Filters">
+          <label class="filter"><span>Category</span><select id="fCat"></select></label>
+          <label class="filter"><span>Start date</span>
+            <select id="fStart">
+              <option value="">Any</option>
+              <option value="none">No start date</option>
+              <option value="past">Before today</option>
+              <option value="this_month">This month</option>
+              <option value="next_3m">Next 3 months</option>
+              <option value="this_year">This year</option>
+              <option value="next_year">Next year</option>
+              <option value="custom">Custom range…</option>
+            </select></label>
+          <span id="fRange" class="filter-range" hidden>
+            <input type="date" id="fFrom" aria-label="Start date from"><span>–</span><input type="date" id="fTo" aria-label="Start date to">
+          </span>
+          <button type="button" id="fClear" class="mini clear" hidden>✕ Clear</button>
+        </div>
+        <span class="mode-note">
+          <button type="button" id="fxNote" class="fx-note" title="Exchange rate used for ₹ amounts"></button>
+          <span id="modeNote"></span>
+        </span>
+      </div>
     </nav>
 
     <main id="main"></main>
@@ -126,6 +146,8 @@
           <input name="title" required maxlength="120" placeholder="What's the thought?"></label>
 
         <div class="grid-2">
+          <label class="field"><span>Category <em class="req">required</em></span>
+            <select name="category" required></select></label>
           <label class="field"><span>Stage</span>
             <select name="stage">
               <option value="initial">Initial</option>
@@ -133,6 +155,10 @@
               <option value="review">Review</option>
               <option value="decision">Decision</option>
             </select></label>
+        </div>
+
+        <div class="grid-2" id="decisionRow">
+          <span class="grid-spacer"></span>
           <label class="field" id="decisionField"><span>Decision</span>
             <select name="decision">
               <option value="">Awaiting decision</option>
@@ -177,12 +203,6 @@
 
         <label class="field"><span>Description <small class="counter" data-for="description"></small></span>
           <textarea name="description" rows="4" placeholder="What is it about?"></textarea></label>
-
-        <label class="field"><span>Objective <small class="counter" data-for="objective"></small></span>
-          <textarea name="objective" rows="3" placeholder="What should it achieve?"></textarea></label>
-
-        <label class="field"><span>Expected benefit</span>
-          <textarea name="expected_benefit" rows="3" placeholder="Why is it worth doing?"></textarea></label>
 
         <div class="grid-2">
           <label class="field"><span>Planned cost <em class="currency-note"></em></span>
@@ -248,8 +268,8 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=20261017b"></script>
-  <script src="core.js?v=20261017b"></script>
-  <script src="app.js?v=20261017b"></script>
+  <script src="config.js?v=20261018"></script>
+  <script src="core.js?v=20261018"></script>
+  <script src="app.js?v=20261018"></script>
 </body>
 </html>

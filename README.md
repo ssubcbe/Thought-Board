@@ -55,9 +55,12 @@ Commit. Reload your site → sign in with the user from step 3.
 | Project | A thought whose decision is **Proceed**. Priority (High/Medium/Low) and Status (Not Started/WIP/Completed/On-Hold) become active. |
 | % Complete | Appears next to Status when Status is **WIP** (0–100, shown as a progress bar on the card). Completed sets it to 100; On-Hold keeps the last value; Not Started clears it. |
 | Process map | Static strip above the boxes: Start → Initial → Data Gathering → Review → Decision (side branch: Dropped · Future · On-Hold) → **Proceed** gate → Not Started → WIP → Completed (Finish). Dotted line = thought, solid green = project. Compact version on phones. |
+| Dashboard filters | Far right of the Board/List row: **Category** and **Start date** (Any · No start date · Before today · This month · Next 3 months · This year · Next year · Custom range). They apply to the boards, list and summary boxes. |
+| List view | Click any column header to sort (▲ A→Z, ▼ Z→A, third click = off). The row under the headers filters each column: dropdowns for fixed values; text boxes accept words or `>100`, `<=50`, `>1 Nov 2026`. |
 | Summary boxes | Click **Open thoughts** → Pipeline board · **Projects** → Projects by Status · **In progress** / **Completed** → that column, highlighted. |
 | End date | Start date + Duration (weeks), calculated automatically |
-| Description / Objective | Max 250 words each (live counter) |
+| Description | Max 250 words (live counter) |
+| Category | **Required.** Client Work · Family & Wellbeing · Finance · Home Improvements · Personal · Revenue (A→Z). Shown on cards and in the list. |
 | Icon | Square slot: an emoji, a square image URL, or the title's initials by default |
 | Planned cost | Entered in **£ (GBP)**, shown as `£1,200 (₹1,34,880)`. The ₹ figure uses the latest free daily rate (Frankfurter/ECB, backup: ExchangeRate-API), re-checked every 6 hours. Click the rate pill or **⋯ → Exchange rate…** to refresh, compare on XE, or set your own rate. Change currencies in `config.js`. |
 | Dev link | Link to wherever the real work happens (Notion, Drive, Trello, GitHub…) |
@@ -78,6 +81,7 @@ share.js     share page
 schema.sql   database table, security rules, share function (paste into Supabase)
 migration-01-percent-complete.sql   one-time update for databases created before % Complete
 migration-02-actual-cost.sql        one-time update for databases created before Actual cost
+migration-03-category.sql           one-time update for databases created before Category
 ```
 
 **If the page looks like plain unstyled text:** `styles.css` / `app.js` are not next to `index.html`. Check that all files are in the same folder (or the top level of the repo).
