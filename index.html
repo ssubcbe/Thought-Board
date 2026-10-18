@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261018">
+  <link rel="stylesheet" href="styles.css?v=20261018b">
 </head>
 <body>
 
@@ -92,28 +92,27 @@
         <button type="button" data-filter="projects">Projects</button>
       </div>
       <div class="toolbar-right">
-        <div class="filters" role="group" aria-label="Filters">
-          <label class="filter"><span>Category</span><select id="fCat"></select></label>
-          <label class="filter"><span>Start date</span>
-            <select id="fStart">
-              <option value="">Any</option>
-              <option value="none">No start date</option>
-              <option value="past">Before today</option>
-              <option value="this_month">This month</option>
-              <option value="next_3m">Next 3 months</option>
-              <option value="this_year">This year</option>
-              <option value="next_year">Next year</option>
-              <option value="custom">Custom range…</option>
-            </select></label>
-          <span id="fRange" class="filter-range" hidden>
+        <div class="seg seg-filters" role="group" aria-label="Filters">
+          <select id="fCat" class="seg-select" aria-label="Category"></select>
+          <select id="fStart" class="seg-select" aria-label="Start date">
+            <option value="">Any start date</option>
+            <option value="none">No start date</option>
+            <option value="past">Started before today</option>
+            <option value="this_month">Starts this month</option>
+            <option value="next_3m">Starts in next 3 months</option>
+            <option value="this_year">Starts this year</option>
+            <option value="next_year">Starts next year</option>
+            <option value="custom">Custom date range…</option>
+          </select>
+          <span id="fRange" class="seg-range" hidden>
             <input type="date" id="fFrom" aria-label="Start date from"><span>–</span><input type="date" id="fTo" aria-label="Start date to">
           </span>
-          <button type="button" id="fClear" class="mini clear" hidden>✕ Clear</button>
+          <button type="button" id="fClear" class="seg-clear" title="Clear filters" aria-label="Clear filters" hidden>✕</button>
         </div>
-        <span class="mode-note">
-          <button type="button" id="fxNote" class="fx-note" title="Exchange rate used for ₹ amounts"></button>
-          <span id="modeNote"></span>
-        </span>
+        <div class="seg">
+          <button type="button" id="fxNote" title="Exchange rate used for ₹ amounts — click for details"></button>
+        </div>
+        <span id="modeNote" class="mode-note"></span>
       </div>
     </nav>
 
@@ -171,7 +170,7 @@
 
         <fieldset id="projectBox" class="project-box">
           <legend>Project</legend>
-          <p id="projectHint" class="hint">Priority and Status become active once the Decision is <b>Proceed</b>.</p>
+          <p id="projectHint" class="hint">Priority and Status become active once the Decision of the <b>Stage</b> is to <b>Proceed</b>.</p>
           <div class="grid-2" id="projGrid">
             <label class="field"><span>Priority</span>
               <select name="priority">
@@ -268,8 +267,8 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=20261018"></script>
-  <script src="core.js?v=20261018"></script>
-  <script src="app.js?v=20261018"></script>
+  <script src="config.js?v=20261018b"></script>
+  <script src="core.js?v=20261018b"></script>
+  <script src="app.js?v=20261018b"></script>
 </body>
 </html>

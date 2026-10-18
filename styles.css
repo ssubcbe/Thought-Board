@@ -628,3 +628,46 @@ select.col-filter { max-width: 96px; }
 .list td .chip { white-space: normal; height: auto; min-height: 20px; line-height: 1.25; padding: 2px 8px; }
 .list td.c-title { min-width: 170px; max-width: 220px; }
 .list td.c-category, .list td.c-decision, .list td.c-stage { min-width: 90px; max-width: 130px; }
+
+/* ── Filters styled like the Board / List segments ── */
+.toolbar { align-items: center; }
+.toolbar-right { flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.seg-filters { align-items: center; }
+.seg-select {
+  appearance: none; -webkit-appearance: none; border: 0; border-radius: 8px; cursor: pointer;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236A6B73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  padding: 6px 28px 6px 12px; font: 500 14px var(--font-body); color: var(--muted); line-height: 1.5;
+}
+.seg-select:hover { color: var(--ink); }
+.seg-select.on { background-color: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.seg-select option { color: var(--ink); background: var(--surface); }
+.seg-range { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; color: var(--muted); }
+.seg-range input {
+  height: 30px; border: 0; border-radius: 8px; background: var(--surface); padding: 0 6px;
+  font: 500 13px var(--font-body); color: var(--ink); box-shadow: var(--shadow);
+}
+.seg-clear { border: 0; background: none; cursor: pointer; color: var(--accent); font-weight: 700; padding: 6px 10px; border-radius: 8px; }
+.seg-clear:hover { background: var(--surface); }
+#fxNote { font-variant-numeric: tabular-nums; }
+.toolbar-right .mode-note { flex-basis: 100%; text-align: right; display: block; }
+.toolbar-right .mode-note:empty { display: none; }
+
+/* ── Due / overdue on cards ── */
+:root { --late-bg: #FBF1EE; --late-line: #EBCFC6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --late-bg: #2A1E1B; --late-line: #4E3029; } }
+:root[data-theme="dark"] { --late-bg: #2A1E1B; --late-line: #4E3029; }
+.card-meta .due { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.card-meta .due.late { color: var(--red); }
+.card.overdue { background: var(--late-bg); border-color: var(--late-line); }
+.card.overdue.is-project { border-left-color: var(--red); }
+.card.overdue .card-foot { border-top-color: var(--late-line); }
+.card.overdue .progress { background: var(--late-line); }
+
+@media (max-width: 720px) {
+  .toolbar-right { justify-content: flex-start; width: 100%; }
+  .seg-filters { flex: 1 1 100%; }
+  .seg-select { flex: 1 1 0; min-width: 0; font-size: 13px; }
+  .toolbar-right .mode-note { text-align: left; }
+}
+.card-meta { flex-wrap: nowrap; align-items: baseline; }
+.card-meta > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

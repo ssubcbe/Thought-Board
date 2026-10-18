@@ -120,7 +120,7 @@ function renderFilters() {
   const f = state.dash;
   const cat = $('#fCat');
   if (!cat.options.length) {
-    cat.innerHTML = '<option value="">All</option>'
+    cat.innerHTML = '<option value="">All categories</option>'
       + M.CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join('')
       + '<option value="none">Uncategorised</option>';
   }
@@ -128,7 +128,7 @@ function renderFilters() {
   $('#fFrom').value = f.from; $('#fTo').value = f.to;
   $('#fRange').hidden = f.start !== 'custom';
   $('#fClear').hidden = !dashActive();
-  cat.classList.toggle('active', !!f.cat); $('#fStart').classList.toggle('active', !!f.start);
+  cat.classList.toggle('on', !!f.cat); $('#fStart').classList.toggle('on', !!f.start);
 }
 
 function renderToolbar() {
@@ -193,7 +193,9 @@ function goTo(go) {
 /* ───────────── Exchange rate ───────────── */
 function renderFx() {
   const note = $('#fxNote');
-  if (note) note.textContent = M.fxLabel();
+  if (!note) return;
+  note.textContent = M.fx.rate ? `£1 = ₹${M.fx.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '£1 = ₹ —';
+  note.title = M.fxLabel() + ' — click for details';
 }
 
 function openFx() {
@@ -241,13 +243,26 @@ function emptyState() {
   </div>`;
 }
 
+/* Due / overdue, from the End date (Start date + Duration). Not shown once Completed or Dropped. */
+function dueInfo(t) {
+  if (!t.end_date || t.status === 'completed' || t.decision === 'dropped') return null;
+  const [y, m, d] = String(t.end_date).slice(0, 10).split('-').map(Number);
+  const now = new Date();
+  const days = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  const wk = (n) => `${n} week${n === 1 ? '' : 's'}`;
+  if (days > 0) return { text: `Due in ${wk(Math.ceil(days / 7))}`, overdue: false };
+  if (days === 0) return { text: 'Due today', overdue: false };
+  return { text: `Overdue by ${wk(Math.ceil(-days / 7))}`, overdue: true };
+}
+
 function cardHtml(t, board) {
   const dev = M.safeUrl(t.dev_link);
-  const dates = M.dateLine(t);
+  const dates = [t.start_date && M.fmtDate(t.start_date), t.end_date && M.fmtDate(t.end_date)].filter(Boolean).join(' → ');
   const plan = M.fmtMoney(t.planned_cost);
   const act = M.fmtMoney(t.actual_cost);
   const created = M.fmtAdminDate(t.created_at);
-  return `<article class="card${M.isProject(t) ? ' is-project' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
+  const due = dueInfo(t);
+  return `<article class="card${M.isProject(t) ? ' is-project' : ''}${due && due.overdue ? ' overdue' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
     <div class="card-head">
       ${M.iconHtml(t)}
       <div class="card-title">
@@ -258,7 +273,7 @@ function cardHtml(t, board) {
     </div>
     ${t.description ? `<p class="card-desc">${esc(t.description)}</p>` : ''}
     ${M.progressHtml(t)}
-    ${dates ? `<div class="card-meta"><span>${esc(dates)}</span></div>` : ''}
+    ${dates || due ? `<div class="card-meta"><span>${esc(dates)}</span>${due ? `<span class="due${due.overdue ? ' late' : ''}">${esc(due.text)}</span>` : ''}</div>` : ''}
     ${plan || act ? `<div class="card-costs">${plan ? `<span><em>Planned</em> ${esc(plan)}</span>` : ''}${act ? `<span><em>Actual</em> ${esc(act)}</span>` : ''}</div>` : ''}
     <div class="card-foot">
       ${created ? `<span class="admin-meta">Created : ${esc(created)}</span>` : '<span></span>'}
