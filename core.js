@@ -382,6 +382,20 @@ var createStore = (function () {
       if (error) throw new Error(error.message);
     }
     async signOut() { await this.sb.auth.signOut(); }
+
+    /** Check the current password, then set the new one. */
+    async changePassword(current, next) {
+      const { data } = await this.sb.auth.getUser();
+      const email = data && data.user && data.user.email;
+      if (!email) throw new Error('Please sign in again.');
+      const check = await this.sb.auth.signInWithPassword({ email, password: current });
+      if (check.error) throw new Error('Current password is incorrect.');
+      const { error } = await this.sb.auth.updateUser({ password: next });
+      if (error) {
+        if (/different from the old/i.test(error.message)) throw new Error('New password must be different from the current one.');
+        throw new Error(error.message);
+      }
+    }
   
     async list() {
       return SupabaseStore.ok(await this.sb.from('thoughts').select('*').order('updated_at', { ascending: false }));

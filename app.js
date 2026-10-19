@@ -77,6 +77,7 @@ async function enterApp() {
   $('#auth').hidden = true; $('#app').hidden = false;
   $('#modeNote').textContent = store.mode === 'local' ? 'Local mode · saved in this browser only' : '';
   $('#signoutItem').hidden = store.mode === 'local';
+  $('#passwordItem').hidden = store.mode === 'local';
   try { state.items = await store.list(); } catch (e) { toast(e.message, true); }
   render();
   M.fxRefresh().then(render).catch(() => {});
@@ -681,6 +682,33 @@ async function importJson(file) {
   } catch (e) { toast(e.message, true); }
 }
 
+/* ───────────── Change password ───────────── */
+async function openPassword() {
+  const f = $('#pwForm'); f.reset();
+  $('#pwErr').hidden = true;
+  $$('#pwForm input[name=current], #pwForm input[name=next], #pwForm input[name=confirm]').forEach((i) => (i.type = 'password'));
+  try { const s = await store.session(); $('#pwUser').value = (s && s.user && s.user.email) || ''; } catch { /* ignore */ }
+  $('#pwDlg').showModal();
+  setTimeout(() => f.current.focus(), 50);
+}
+
+async function onPasswordSave(e) {
+  e.preventDefault();
+  const f = e.currentTarget; const err = $('#pwErr');
+  const show = (m) => { err.textContent = m; err.hidden = false; };
+  err.hidden = true;
+  const cur = f.current.value; const nx = f.next.value; const cf = f.confirm.value;
+  if (!cur) return show('Enter your current password.');
+  if (nx.length < 8) return show('New password must be at least 8 characters.');
+  if (nx !== cf) return show('The new passwords do not match.');
+  if (nx === cur) return show('New password must be different from the current one.');
+  const btn = f.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    await store.changePassword(cur, nx);
+    $('#pwDlg').close(); toast('Password updated');
+  } catch (ex) { show(ex.message); } finally { btn.disabled = false; btn.textContent = 'Update password'; }
+}
+
 /* ───────────── Small UI helpers ───────────── */
 let toastTimer;
 function toast(msg, isErr = false) {
@@ -766,6 +794,7 @@ function wire() {
     if (b.dataset.menu === 'import') $('#importFile').click();
     if (b.dataset.menu === 'signout') { await store.signOut(); location.reload(); }
     if (b.dataset.menu === 'fx') openFx();
+    if (b.dataset.menu === 'password') openPassword();
   });
   $('#importFile').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importJson(f); e.target.value = ''; });
 
@@ -827,6 +856,13 @@ function wire() {
   $('#fxDlg').addEventListener('click', onFxAction);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#drawer').classList.contains('open') && !document.querySelector('dialog[open]')) closeEditor();
+  });
+
+  // Change password
+  $('#pwForm').addEventListener('submit', onPasswordSave);
+  $$('[data-pw-close]').forEach((b) => b.addEventListener('click', () => $('#pwDlg').close()));
+  $('#pwShow').addEventListener('change', (e) => {
+    $$('#pwForm input[name=current], #pwForm input[name=next], #pwForm input[name=confirm]').forEach((i) => (i.type = e.target.checked ? 'text' : 'password'));
   });
 
   // Share dialog

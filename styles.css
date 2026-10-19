@@ -671,3 +671,7 @@ select.col-filter { max-width: 96px; }
 }
 .card-meta { flex-wrap: nowrap; align-items: baseline; }
 .card-meta > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ── Change password ── */
+.pw-body { display: flex; flex-direction: column; gap: 12px; }
+.pw-show { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
