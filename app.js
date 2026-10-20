@@ -63,8 +63,8 @@ const BOARDS = {
 
 /* ───────────── Boot (called at the end of this file) ───────────── */
 async function boot() {
-  document.title = CONFIG.APP_NAME;
-  $$('.app-name').forEach((el) => (el.textContent = CONFIG.APP_NAME));
+  document.title = M.APP_NAME;
+  $$('.app-name').forEach((el) => (el.textContent = M.APP_NAME));
   wire();
   store = await createStore();
   if (store.mode === 'supabase' && !(await store.session())) return showAuth();
@@ -263,7 +263,7 @@ function cardHtml(t, board) {
   const act = M.fmtMoney(t.actual_cost);
   const created = M.fmtAdminDate(t.created_at);
   const due = dueInfo(t);
-  return `<article class="card${M.isProject(t) ? ' is-project' : ''}${due && due.overdue ? ' overdue' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
+  return `<article class="card${M.isProject(t) ? ' is-project' : ''}${due && due.overdue ? ' overdue' : ''}${M.isProject(t) && t.status === 'completed' ? ' done' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
     <div class="card-head">
       ${M.iconHtml(t)}
       <div class="card-title">

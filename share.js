@@ -33,7 +33,7 @@ function section(h, text) {
 }
 
 function render(t) {
-  document.title = `${t.title} · ${CONFIG.APP_NAME}`;
+  document.title = `${t.title} · ${M.APP_NAME}`;
   const proj = M.isProject(t);
   const dev = M.safeUrl(t.dev_link);
   root.innerHTML = `
@@ -62,7 +62,7 @@ function render(t) {
       </div>
       ${section('Description', t.description)}
       ${dev ? `<a class="btn primary" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open development link</a>` : ''}
-      <footer class="share-foot">Shared read-only from ${esc(CONFIG.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${(t.planned_cost != null || t.actual_cost != null) && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
+      <footer class="share-foot">Shared read-only from ${esc(M.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${(t.planned_cost != null || t.actual_cost != null) && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
     </article>`;
 }
 

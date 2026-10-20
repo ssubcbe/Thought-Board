@@ -675,3 +675,13 @@ select.col-filter { max-width: 96px; }
 /* ── Change password ── */
 .pw-body { display: flex; flex-direction: column; gap: 12px; }
 .pw-show { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+
+/* ── Completed project cards: same soft green as the PROJECT panel ── */
+:root { --done-line: #C3D9CE; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --done-line: #2F4A3F; } }
+:root[data-theme="dark"] { --done-line: #2F4A3F; }
+.card.done { background: var(--accent-soft); border-color: var(--done-line); }
+.card.done.is-project { border-left-color: var(--accent); }
+.card.done .card-foot { border-top-color: var(--done-line); }
+.card.done .icon-sq { background: var(--surface); }
+.card.done .chip.s-completed { background: var(--surface); }

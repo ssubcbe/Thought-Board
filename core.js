@@ -19,6 +19,9 @@ var M = (function () {
   ];
   
   // Categories — shown in ascending (A→Z) order
+  // App name. An older config.js still saying 'Thought Board' gets the new name.
+  const APP_NAME = !CONFIG.APP_NAME || CONFIG.APP_NAME === 'Thought Board' ? 'My Thought Board' : CONFIG.APP_NAME;
+
   const CATEGORIES = [
     { id: 'client_work',       label: 'Client Work' },
     { id: 'family_wellbeing',  label: 'Family & Wellbeing' },
@@ -270,7 +273,7 @@ var M = (function () {
     return s;
   }
   
-  return { CATEGORIES, STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { APP_NAME, CATEGORIES, STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
