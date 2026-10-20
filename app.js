@@ -81,6 +81,7 @@ async function enterApp() {
   try { state.items = await store.list(); } catch (e) { toast(e.message, true); }
   render();
   M.fxRefresh().then(render).catch(() => {});
+  maybeAutoTour();
 }
 
 /* ───────────── Rendering ───────────── */
@@ -709,6 +710,102 @@ async function onPasswordSave(e) {
   } catch (ex) { show(ex.message); } finally { btn.disabled = false; btn.textContent = 'Update password'; }
 }
 
+/* ───────────── Onboarding tour (about 1½ minutes) ─────────────
+   Starts once per person per browser on first sign-in; replay from ⋯ → Take the tour. */
+const TOUR = [
+  { sel: null, title: 'Welcome to My Thought Board 👋',
+    text: 'This board helps you capture ideas, decide on them, and run the ones you go ahead with as projects. This quick tour takes about a minute.' },
+  { sel: '.journey', title: 'The journey of a thought',
+    text: 'Every idea moves left to right: Initial → Data Gathering → Review → Decision. Choose <b>Proceed</b> and it becomes a <b>Project</b>, tracked through Not Started → WIP → Completed.' },
+  { sel: '#newBtn', title: 'Capture a new thought',
+    text: 'Click <b>＋ New thought</b> to add an idea. Give it a title and a <b>Category</b> (required). Everything else, such as dates and costs, can be added later.' },
+  { sel: '#summary', title: 'Your summary at a glance',
+    text: 'Counts and total costs (£, with ₹ in brackets). Click <b>Open thoughts</b>, <b>Projects</b>, <b>In progress</b> or <b>Completed</b> to jump straight to those cards.' },
+  { sel: '#boardSeg', title: 'Four Kanban boards',
+    text: '<b>Pipeline</b> shows thoughts by stage, <b>Decisions</b> shows what you have decided, and the two <b>Projects</b> boards show status and priority. <b>Drag a card</b> to another column to update it.' },
+  { sel: '.card', title: 'Cards',
+    text: 'Click a card to open and edit it. Cards show dates, costs and <b>Due in / Overdue by</b> weeks. Overdue cards turn soft red and completed ones turn green. Use <b>Share</b> to send someone a read-only link to just that item.',
+    fallback: '#main' },
+  { sel: '.seg-filters', title: 'Filter by Category or Start date',
+    text: 'Narrow the boards, list and summary to one category or a start-date range. Next to the filters, <b>£1 = ₹…</b> shows the live exchange rate; click it for details.' },
+  { sel: '#viewSeg', title: 'List view',
+    text: 'Switch to <b>List</b> for a table of everything. Click any column heading to sort, and use the boxes under the headings to filter, for example <b>>100</b> or <b>Nov 2026</b>.' },
+  { sel: '#menuBtn', title: 'More options',
+    text: 'The <b>⋯</b> menu has the exchange rate, backup export and import, <b>Change password</b>, Sign out, and this tour if you want to see it again. That is it. Enjoy planning!' },
+];
+const tour = { i: 0, prev: null };
+const tourKey = async () => {
+  let who = 'local';
+  try { const s = await store.session(); who = (s && s.user && s.user.email) || who; } catch { /* ignore */ }
+  return 'thoughtboard.tour.v1:' + who;
+};
+async function maybeAutoTour() {
+  try { if (localStorage.getItem(await tourKey())) return; } catch { return; }
+  setTimeout(startTour, 600);
+}
+function startTour() {
+  tour.prev = { view: state.view, board: state.board, focus: state.focus };
+  if (state.view !== 'board') { state.view = 'board'; state.focus = null; render(); }
+  closeEditor(); $('#menu').hidden = true;
+  tour.i = 0;
+  $('#tourDots').innerHTML = TOUR.map((_, i) => `<span data-dot="${i}"></span>`).join('');
+  $('#tour').hidden = false; document.body.classList.add('touring');
+  showTourStep();
+}
+async function endTour() {
+  $('#tour').hidden = true; document.body.classList.remove('touring');
+  try { localStorage.setItem(await tourKey(), new Date().toISOString()); } catch { /* ignore */ }
+  if (tour.prev) { Object.assign(state, tour.prev); render(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function showTourStep() {
+  const st = TOUR[tour.i];
+  $('#tourStep').textContent = `${tour.i + 1} of ${TOUR.length}`;
+  $('#tourTitle').textContent = st.title;
+  $('#tourText').innerHTML = st.text;
+  $$('#tourDots span').forEach((d, i) => d.classList.toggle('on', i === tour.i));
+  $('[data-tour=back]').style.visibility = tour.i ? 'visible' : 'hidden';
+  $('[data-tour=next]').textContent = tour.i === TOUR.length - 1 ? 'Finish' : tour.i === 0 ? 'Start tour' : 'Next';
+  let el = st.sel ? $(st.sel) : null;
+  if (el && !el.getClientRects().length) el = null;
+  if (!el && st.fallback) el = $(st.fallback);
+  const spot = $('.tour-spot'); const pop = $('.tour-pop');
+  if (!el) {
+    spot.classList.add('none'); pop.classList.add('center'); pop.style.top = pop.style.left = '';
+    $('[data-tour=next]').focus(); return;
+  }
+  spot.classList.remove('none'); pop.classList.remove('center');
+  if (window.innerWidth <= 720) {
+    // phone: keep the highlighted area in the top half, clear of the sticky header and the tour panel
+    const head = $('.topbar').offsetHeight || 0;
+    const sc = el.closest('.board, .table-wrap');               // bring sideways-scrolled cards into view
+    if (sc) sc.scrollLeft += el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 8;
+    window.scrollTo(0, Math.max(0, el.getBoundingClientRect().top + window.scrollY - head - 16));
+  } else {
+    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+  requestAnimationFrame(() => placeTour(el));
+  $('[data-tour=next]').focus();
+}
+function placeTour(el) {
+  const r = el.getBoundingClientRect(); const pad = 6;
+  const spot = $('.tour-spot'); const pop = $('.tour-pop');
+  Object.assign(spot.style, { top: r.top - pad + 'px', left: r.left - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+  if (window.innerWidth <= 720) { pop.style.top = pop.style.left = ''; pop.classList.add('sheet'); return; }
+  pop.classList.remove('sheet');
+  const pw = pop.offsetWidth; const ph = pop.offsetHeight; const gap = 14;
+  let top = r.bottom + gap;
+  if (top + ph > window.innerHeight - 12) top = Math.max(12, r.top - ph - gap);
+  let left = Math.min(Math.max(12, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 12);
+  pop.style.top = top + 'px'; pop.style.left = left + 'px';
+}
+function onTourClick(e) {
+  const b = e.target.closest('[data-tour]'); if (!b) return;
+  if (b.dataset.tour === 'skip') return endTour();
+  if (b.dataset.tour === 'back' && tour.i > 0) { tour.i--; return showTourStep(); }
+  if (b.dataset.tour === 'next') { if (tour.i >= TOUR.length - 1) return endTour(); tour.i++; showTourStep(); }
+}
+
 /* ───────────── Small UI helpers ───────────── */
 let toastTimer;
 function toast(msg, isErr = false) {
@@ -795,6 +892,7 @@ function wire() {
     if (b.dataset.menu === 'signout') { await store.signOut(); location.reload(); }
     if (b.dataset.menu === 'fx') openFx();
     if (b.dataset.menu === 'password') openPassword();
+    if (b.dataset.menu === 'tour') startTour();
   });
   $('#importFile').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importJson(f); e.target.value = ''; });
 
@@ -864,6 +962,16 @@ function wire() {
   $('#pwShow').addEventListener('change', (e) => {
     $$('#pwForm input[name=current], #pwForm input[name=next], #pwForm input[name=confirm]').forEach((i) => (i.type = e.target.checked ? 'text' : 'password'));
   });
+
+  // Tour
+  $('#tour').addEventListener('click', onTourClick);
+  document.addEventListener('keydown', (e) => {
+    if ($('#tour').hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); endTour(); }
+    if (e.key === 'ArrowRight') $('[data-tour=next]').click();
+    if (e.key === 'ArrowLeft' && tour.i > 0) $('[data-tour=back]').click();
+  }, true);
+  window.addEventListener('resize', () => { if (!$('#tour').hidden) showTourStep(); });
 
   // Share dialog
   $('#shareBody').addEventListener('click', onShareAction);

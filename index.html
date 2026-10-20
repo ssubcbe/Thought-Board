@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261020">
+  <link rel="stylesheet" href="styles.css?v=20261020b">
 </head>
 <body>
 
@@ -35,6 +35,7 @@
         <div class="menu-wrap">
           <button id="menuBtn" class="btn ghost icon-btn" type="button" aria-label="More" aria-haspopup="true">⋯</button>
           <div id="menu" class="menu" hidden>
+            <button type="button" data-menu="tour">Take the 2-minute tour</button>
             <button type="button" data-menu="fx">Exchange rate…</button>
             <button type="button" data-menu="export">Export backup (JSON)</button>
             <button type="button" data-menu="import">Import backup…</button>
@@ -284,10 +285,28 @@
     </form>
   </dialog>
 
+  <!-- ── Onboarding tour ── -->
+  <div id="tour" class="tour" hidden>
+    <div class="tour-shade"></div>
+    <div class="tour-spot" aria-hidden="true"></div>
+    <div class="tour-pop" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+      <div class="tour-top"><span id="tourStep" class="tour-step"></span><button type="button" class="tour-skip" data-tour="skip">Skip tour</button></div>
+      <h3 id="tourTitle"></h3>
+      <p id="tourText"></p>
+      <div class="tour-foot">
+        <div class="tour-dots" id="tourDots"></div>
+        <div class="tour-btns">
+          <button type="button" class="btn ghost" data-tour="back">Back</button>
+          <button type="button" class="btn primary" data-tour="next">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=20261020"></script>
-  <script src="core.js?v=20261020"></script>
-  <script src="app.js?v=20261020"></script>
+  <script src="config.js?v=20261020b"></script>
+  <script src="core.js?v=20261020b"></script>
+  <script src="app.js?v=20261020b"></script>
 </body>
 </html>
