@@ -51,7 +51,7 @@ var M = (function () {
     'title', 'icon', 'category', 'stage', 'decision', 'priority', 'status',
     'percent_complete', 'start_date', 'duration_weeks', 'end_date',
     'description', 'planned_cost', 'actual_cost',
-    'dev_link', 'share_token', 'sort_order',
+    'dev_link', 'closing_remarks', 'closed_at', 'share_token', 'sort_order',
   ];
   
   function blank() {
@@ -59,13 +59,29 @@ var M = (function () {
       id: null, title: '', icon: '', category: '', stage: 'initial', decision: null,
       priority: null, status: null, percent_complete: null, start_date: null, duration_weeks: null,
       end_date: null, description: '',
-      planned_cost: null, actual_cost: null, dev_link: '', share_token: null, sort_order: 0,
+      planned_cost: null, actual_cost: null, dev_link: '', closing_remarks: '', closed_at: null, share_token: null, sort_order: 0,
     };
   }
   
   /** A Thought becomes a Project once its Decision is "Proceed". */
   const isProject = (t) => !!t && t.stage === 'decision' && t.decision === 'proceed';
   
+  /* ── Closure: Completed projects get a closure date; the status can be changed back
+        for LOCK_DAYS days, after which the item is read-only. ── */
+  const LOCK_DAYS = CONFIG.LOCK_DAYS || 30;
+  const REMARKS_MAX = 100;
+  const isCompleted = (t) => isProject(t) && t.status === 'completed';
+  function reopenUntil(t) {
+    if (!isCompleted(t) || !t.closed_at) return null;
+    const d = new Date(t.closed_at); d.setDate(d.getDate() + LOCK_DAYS); return d;
+  }
+  function isLocked(t) { const u = reopenUntil(t); return !!u && Date.now() > u.getTime(); }
+  /** closed_at to store when an item moves from `before` to `after`. */
+  function closedAtFor(before, after) {
+    if (!isCompleted(after)) return null;
+    return before && isCompleted(before) && before.closed_at ? before.closed_at : new Date().toISOString();
+  }
+
   /** Patch for setting a decision; promoting to Project fills sensible defaults. */
   function decisionPatch(t, decision) {
     const p = { stage: 'decision', decision: decision || null };
@@ -104,7 +120,7 @@ var M = (function () {
     if (!iso) return '';
     const d = new Date(iso);
     if (isNaN(d)) return '';
-    const m = d.toLocaleString('en-GB', { month: 'short' });
+    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
     return `${String(d.getDate()).padStart(2, '0')}-${m}-${d.getFullYear()}`;
   }
 
@@ -273,7 +289,7 @@ var M = (function () {
     return s;
   }
   
-  return { APP_NAME, CATEGORIES, STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
+  return { APP_NAME, CATEGORIES, STAGES, DECISIONS, PRIORITIES, STATUSES, WORD_LIMIT, FIELDS, blank, isProject, decisionPatch, endDate, label, wordCount, fmtDate, fmtAdminDate, LOCK_DAYS, REMARKS_MAX, isCompleted, reopenUntil, isLocked, closedAtFor, percentFor, progressHtml, fmtMoney, fmtPrimary, fmtSecondary, fx, fxRefresh, fxSetManual, fxLabel, currencySymbol, XE_URL, CUR1, CUR2, esc, safeUrl, normaliseUrl, iconHtml, chipsHtml, dateLine };
 })();
 
 /* Data layer */
@@ -282,7 +298,7 @@ var createStore = (function () {
   //   LocalStore    – browser localStorage (no setup, single device, no sharing)
   //   SupabaseStore – free online Postgres with login + per-item share links
   
-  const { FIELDS, blank, endDate } = M;
+  const { FIELDS, blank, endDate, isLocked, closedAtFor, LOCK_DAYS } = M;
   const LS_KEY = 'thoughtboard.items.v1';
   
   const uid = () => (crypto.randomUUID ? crypto.randomUUID()
@@ -296,7 +312,7 @@ var createStore = (function () {
     for (const k of FIELDS) {
       if (!(k in d)) continue;
       let v = d[k];
-      if (v === '' && ['category', 'decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'actual_cost', 'share_token'].includes(k)) v = null;
+      if (v === '' && ['category', 'decision', 'priority', 'status', 'percent_complete', 'start_date', 'end_date', 'duration_weeks', 'planned_cost', 'actual_cost', 'closed_at', 'share_token'].includes(k)) v = null;
       if ((k === 'duration_weeks' || k === 'planned_cost' || k === 'actual_cost' || k === 'percent_complete') && v !== null && v !== undefined) v = Number(v);
       out[k] = v;
     }
@@ -348,12 +364,17 @@ var createStore = (function () {
     async create(d) {
       const now = new Date().toISOString();
       const row = { ...blank(), ...clean(d), id: uid(), created_at: now, updated_at: now };
+      row.closed_at = closedAtFor(null, row);
       const a = this.read(); a.unshift(row); this.write(a);
       return row;
     }
     async update(id, patch) {
       const a = this.read(); const i = a.findIndex((x) => x.id === id);
       if (i < 0) throw new Error('Item not found');
+      const p0 = clean(patch);
+      const changes = Object.keys(p0).filter((k) => k !== 'share_token');
+      if (isLocked(a[i]) && changes.length) throw new Error('This item was closed more than ' + LOCK_DAYS + ' days ago and is now read-only.');
+      patch = { ...patch, closed_at: closedAtFor(a[i], { ...a[i], ...p0 }) };
       a[i] = { ...a[i], ...clean(patch), updated_at: new Date().toISOString() };
       this.write(a);
       return a[i];
@@ -371,6 +392,8 @@ var createStore = (function () {
   
     static ok({ data, error }) {
       if (error) {
+        if (/closing_remarks|closed_at/.test(error.message)) throw new Error('Database needs a one-time update: run migration-04-closure.sql in Supabase → SQL Editor.');
+        if (/read-only|locked/i.test(error.message)) throw new Error('This item was closed more than ' + LOCK_DAYS + ' days ago and is now read-only.');
         if (/category/.test(error.message)) throw new Error('Database needs a one-time update: run migration-03-category.sql in Supabase → SQL Editor.');
         if (/actual_cost/.test(error.message)) throw new Error('Database needs a one-time update: run migration-02-actual-cost.sql in Supabase → SQL Editor.');
         if (/percent_complete/.test(error.message)) throw new Error('Database needs a one-time update: run migration-01-percent-complete.sql in Supabase → SQL Editor.');

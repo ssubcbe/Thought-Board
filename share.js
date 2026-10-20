@@ -57,10 +57,12 @@ function render(t) {
         ${fact('Start date', M.fmtDate(t.start_date))}
         ${fact('Duration', t.duration_weeks != null ? `${t.duration_weeks} weeks` : '')}
         ${fact('End date', M.fmtDate(t.end_date))}
+        ${proj && t.status === 'completed' && t.closed_at ? fact('Closed on', M.fmtAdminDate(t.closed_at)) : ''}
         ${fact('Planned cost', M.fmtMoney(t.planned_cost))}
         ${fact('Actual cost', M.fmtMoney(t.actual_cost))}
       </div>
       ${section('Description', t.description)}
+      ${proj && t.status === 'completed' ? section('Closing remarks', t.closing_remarks) : ''}
       ${dev ? `<a class="btn primary" href="${esc(dev)}" target="_blank" rel="noopener">↗ Open development link</a>` : ''}
       <footer class="share-foot">Shared read-only from ${esc(M.APP_NAME)}${t.updated_at ? ` · updated ${esc(M.fmtDate(t.updated_at))}` : ''}${(t.planned_cost != null || t.actual_cost != null) && M.fx.rate ? `<br>₹ amounts at ${esc(M.fxLabel())}` : ''}</footer>
     </article>`;

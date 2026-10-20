@@ -716,3 +716,33 @@ select.col-filter { max-width: 96px; }
 .tour-btns .btn { height: 34px; }
 body.touring { overflow: hidden; }
 @media (max-width: 720px) { body.touring #main { padding-bottom: 70vh; } }
+
+/* ── Closure ── */
+.field.closing input { border-color: var(--accent); background: var(--accent-soft); }
+.field.closing input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--red-soft); background: var(--surface); }
+.field input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--red-soft); }
+.close-note {
+  border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45;
+  background: var(--accent-soft); color: var(--ink); border: 1px solid var(--done-line);
+}
+.close-note.locked { background: var(--gray-soft); border-color: var(--line-strong); color: var(--muted); }
+.close-note b { color: var(--ink); }
+/* read-only (locked) editor: everything greyed */
+.drawer.locked .drawer-body .field input,
+.drawer.locked .drawer-body .field select,
+.drawer.locked .drawer-body .field textarea {
+  background: var(--surface-2); color: var(--muted); border-color: var(--line); cursor: not-allowed; opacity: 1;
+}
+.drawer.locked .drawer-body .field > span,
+.drawer.locked .project-box legend { color: var(--muted); }
+.drawer.locked .project-box { background: transparent; border-color: var(--line); }
+.drawer.locked .icon-slot { filter: grayscale(1); opacity: .7; }
+/* cards */
+.card-meta .due.closed { color: var(--accent); }
+.card-remarks { margin: 0; font-size: 12.5px; font-style: italic; color: var(--ink); opacity: .85; }
+.card.locked { cursor: default; }
+.card.locked.done { background: var(--surface-2); border-color: var(--line); border-left-color: var(--line-strong); }
+.card.locked .icon-sq { filter: grayscale(1); }
+.card.locked h3, .card.locked .card-desc, .card.locked .card-costs, .card.locked .card-remarks { color: var(--muted); }
+.card.locked .chip { filter: grayscale(1); opacity: .8; }
+.card.locked .due.closed { color: var(--muted); }

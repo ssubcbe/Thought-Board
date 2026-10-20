@@ -1,4 +1,4 @@
-# Thought Board
+# My Thought Board
 
 A personal dashboard for capturing **thoughts**, moving them through stages, deciding on them, and running the ones you **Proceed** with as **projects** — on a Kanban board or a list. Each item can be shared through a private, read-only link that shows only that item.
 
@@ -57,6 +57,10 @@ Commit. Reload your site → sign in with the user from step 3.
 | Process map | Static strip above the boxes: Start → Initial → Data Gathering → Review → Decision (side branch: Dropped · Future · On-Hold) → **Proceed** gate → Not Started → WIP → Completed (Finish). Dotted line = thought, solid green = project. Compact version on phones. |
 | Dashboard filters | Far right of the Board/List row: **Category** and **Start date** (Any · No start date · Before today · This month · Next 3 months · This year · Next year · Custom range). They apply to the boards, list and summary boxes. |
 | List view | Click any column header to sort (▲ A→Z, ▼ Z→A, third click = off). The row under the headers filters each column: dropdowns for fixed values; text boxes accept words or `>100`, `<=50`, `>1 Nov 2026`. |
+| Due / Overdue | Cards show **Due in N weeks** (green) on the date line, from the End date. Past the End date: **Overdue by N weeks** and the whole card turns soft red. Not shown once Completed or Dropped. |
+| Change password | **⋯ → Change password…** (online mode). Asks for the current password, then the new one twice (min 8 characters). Each user changes only their own. |
+| Completed cards | A project with Status **Completed** turns the same soft green as the PROJECT panel. |
+| Guided tour | A 9-step tour (about 1½ minutes) starts automatically the first time each person signs in on a browser. Replay any time: **⋯ → Take the 2-minute tour**. Use Next/Back, ← → keys, or Esc to skip. |
 | Summary boxes | Click **Open thoughts** → Pipeline board · **Projects** → Projects by Status · **In progress** / **Completed** → that column, highlighted. |
 | End date | Start date + Duration (weeks), calculated automatically |
 | Description | Max 250 words (live counter) |
@@ -82,6 +86,7 @@ schema.sql   database table, security rules, share function (paste into Supabase
 migration-01-percent-complete.sql   one-time update for databases created before % Complete
 migration-02-actual-cost.sql        one-time update for databases created before Actual cost
 migration-03-category.sql           one-time update for databases created before Category
+migration-04-closure.sql            one-time update: Closing remarks, closure date, 30-day lock
 ```
 
 **If the page looks like plain unstyled text:** `styles.css` / `app.js` are not next to `index.html`. Check that all files are in the same folder (or the top level of the repo).

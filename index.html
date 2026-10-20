@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261020b">
+  <link rel="stylesheet" href="styles.css?v=20261020c">
 </head>
 <body>
 
@@ -137,6 +137,7 @@
       </header>
 
       <div class="drawer-body">
+        <div id="closeNote" class="close-note" hidden></div>
         <div class="icon-row">
           <div id="iconPreview" class="icon-slot"></div>
           <label class="field grow"><span>Icon <em>emoji or square image URL</em></span>
@@ -216,6 +217,9 @@
 
         <label class="field"><span>Development link</span>
           <input name="dev_link" type="url" placeholder="Notion, Drive, Trello, GitHub…" maxlength="1000"></label>
+
+        <label class="field closing" id="remarksField" hidden><span>Closing remarks <em class="req">required · <b id="remarksCount">0</b> / 100</em></span>
+          <input name="closing_remarks" maxlength="100" placeholder="How did it finish? e.g. Delivered on budget, family loved it"></label>
       </div>
 
       <footer class="drawer-foot">
@@ -305,8 +309,8 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=20261020b"></script>
-  <script src="core.js?v=20261020b"></script>
-  <script src="app.js?v=20261020b"></script>
+  <script src="config.js?v=20261020c"></script>
+  <script src="core.js?v=20261020c"></script>
+  <script src="app.js?v=20261020c"></script>
 </body>
 </html>

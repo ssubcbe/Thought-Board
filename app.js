@@ -247,7 +247,8 @@ function emptyState() {
 
 /* Due / overdue, from the End date (Start date + Duration). Not shown once Completed or Dropped. */
 function dueInfo(t) {
-  if (!t.end_date || t.status === 'completed' || t.decision === 'dropped') return null;
+  if (M.isCompleted(t)) return { text: t.closed_at ? `Closed on ${M.fmtAdminDate(t.closed_at)}` : 'Completed', overdue: false, closed: true };
+  if (!t.end_date || t.decision === 'dropped') return null;
   const [y, m, d] = String(t.end_date).slice(0, 10).split('-').map(Number);
   const now = new Date();
   const days = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
@@ -264,7 +265,7 @@ function cardHtml(t, board) {
   const act = M.fmtMoney(t.actual_cost);
   const created = M.fmtAdminDate(t.created_at);
   const due = dueInfo(t);
-  return `<article class="card${M.isProject(t) ? ' is-project' : ''}${due && due.overdue ? ' overdue' : ''}${M.isProject(t) && t.status === 'completed' ? ' done' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0">
+  return `<article class="card${M.isProject(t) ? ' is-project' : ''}${due && due.overdue ? ' overdue' : ''}${M.isProject(t) && t.status === 'completed' ? ' done' : ''}${M.isLocked(t) ? ' locked' : ''}" draggable="${M.isLocked(t) ? 'false' : 'true'}" data-id="${esc(t.id)}" tabindex="0">
     <div class="card-head">
       ${M.iconHtml(t)}
       <div class="card-title">
@@ -275,7 +276,8 @@ function cardHtml(t, board) {
     </div>
     ${t.description ? `<p class="card-desc">${esc(t.description)}</p>` : ''}
     ${M.progressHtml(t)}
-    ${dates || due ? `<div class="card-meta"><span>${esc(dates)}</span>${due ? `<span class="due${due.overdue ? ' late' : ''}">${esc(due.text)}</span>` : ''}</div>` : ''}
+    ${M.isCompleted(t) && t.closing_remarks ? `<p class="card-remarks">“${esc(t.closing_remarks)}”</p>` : ''}
+    ${dates || due ? `<div class="card-meta"><span>${esc(dates)}</span>${due ? `<span class="due${due.overdue ? ' late' : ''}${due.closed ? ' closed' : ''}">${M.isLocked(t) ? '🔒 ' : ''}${esc(due.text)}</span>` : ''}</div>` : ''}
     ${plan || act ? `<div class="card-costs">${plan ? `<span><em>Planned</em> ${esc(plan)}</span>` : ''}${act ? `<span><em>Actual</em> ${esc(act)}</span>` : ''}</div>` : ''}
     <div class="card-foot">
       ${created ? `<span class="admin-meta">Created : ${esc(created)}</span>` : '<span></span>'}
@@ -336,6 +338,9 @@ const LIST_COLS = [
     cell: (t) => moneyCell(t.planned_cost) },
   { key: 'actual', label: 'Actual cost', type: 'num', num: true, val: (t) => (t.actual_cost == null ? null : +t.actual_cost), show: (v) => M.fmtMoney(v),
     cell: (t) => moneyCell(t.actual_cost) },
+  { key: 'closed', label: 'Closed', type: 'date', val: (t) => (M.isCompleted(t) && t.closed_at ? isoDay(new Date(t.closed_at)) : null),
+    show: (v) => (v ? M.fmtAdminDate(v + 'T00:00:00') : '') },
+  { key: 'remarks', label: 'Closing remarks', type: 'text', val: (t) => (M.isCompleted(t) ? t.closing_remarks || '' : '') },
   { key: 'dev', label: 'Dev link', type: 'pick', val: (t) => (M.safeUrl(t.dev_link) ? 'Has link' : ''),
     cell: (t) => { const d = M.safeUrl(t.dev_link); return d ? `<a class="mini" href="${esc(d)}" target="_blank" rel="noopener">↗ Open</a>` : ''; } },
   { key: 'created', label: 'Created', type: 'date', val: (t) => (t.created_at ? isoDay(new Date(t.created_at)) : null),
@@ -474,21 +479,37 @@ function openEditor(id) {
   if (!t) return;
   state.editingId = id || null;
   for (const n of ['title', 'icon', 'category', 'stage', 'decision', 'priority', 'status', 'percent_complete', 'start_date',
-    'duration_weeks', 'description', 'planned_cost', 'actual_cost', 'dev_link']) {
+    'duration_weeks', 'description', 'planned_cost', 'actual_cost', 'dev_link', 'closing_remarks']) {
     fe(n).value = t[n] ?? '';
   }
+  const locked = !!id && M.isLocked(t);
+  state.editLocked = locked;
+  $('#drawer').classList.toggle('locked', locked);
+  $$('#form .drawer-body input, #form .drawer-body select, #form .drawer-body textarea').forEach((el) => {
+    if (el.name !== 'end_date') el.disabled = locked;
+  });
+  F.querySelector('[type=submit]').hidden = locked;
   if (!fe('stage').value) fe('stage').value = 'initial';
   $('#drawerTitle').textContent = id ? t.title || 'Edit' : 'New thought';
   const created = id ? M.fmtAdminDate(t.created_at) : '';
   $('#createdOn').textContent = created ? `Created : ${created}` : '';
   $('#createdOn').hidden = !created;
-  $('#deleteBtn').hidden = !id;
+  $('#deleteBtn').hidden = !id || locked;
   $('#shareFromForm').hidden = !id;
   syncForm();
+  $('.drawer-body').scrollTop = 0;
   $('#drawer').classList.add('open');
   $('#drawer').setAttribute('aria-hidden', 'false');
   $('#scrim').hidden = false;
-  setTimeout(() => fe('title').focus(), 50);
+  if (!locked) setTimeout(() => fe('title').focus(), 50);
+}
+
+/** Open the editor with Status already set to Completed (used when a card is dropped on Completed). */
+function openEditorToComplete(id) {
+  openEditor(id);
+  fe('status').value = 'completed'; syncForm();
+  setTimeout(() => fe('closing_remarks').focus(), 80);
+  toast('Add Closing remarks to complete this project');
 }
 
 function closeEditor() {
@@ -503,8 +524,8 @@ function syncForm() {
   $('#decisionRow').hidden = !isDecision;
   fe('category').classList.toggle('empty', !fe('category').value);
   const proj = isDecision && fe('decision').value === 'proceed';
-  fe('priority').disabled = !proj;
-  fe('status').disabled = !proj;
+  fe('priority').disabled = !proj || state.editLocked;
+  fe('status').disabled = !proj || state.editLocked;
   if (proj) {
     if (!fe('priority').value) fe('priority').value = 'medium';
     if (!fe('status').value) fe('status').value = 'not_started';
@@ -517,6 +538,22 @@ function syncForm() {
   const pv = Math.max(0, Math.min(100, +fe('percent_complete').value || 0));
   $('#pctBar span').style.width = pv + '%';
   $('#projectBox').classList.toggle('inactive', !proj);
+
+  // Closing remarks + closure note
+  const done = proj && status === 'completed';
+  $('#remarksField').hidden = !done;
+  $('#remarksCount').textContent = fe('closing_remarks').value.length;
+  const prev = state.editingId ? find(state.editingId) : null;
+  const note = $('#closeNote');
+  if (prev && M.isLocked(prev)) {
+    note.className = 'close-note locked';
+    note.innerHTML = `🔒 <b>Closed on ${esc(M.fmtAdminDate(prev.closed_at))}</b>. More than ${M.LOCK_DAYS} days have passed, so this item is now read-only.`;
+    note.hidden = false;
+  } else if (prev && M.isCompleted(prev) && prev.closed_at) {
+    note.className = 'close-note';
+    note.innerHTML = `✓ <b>Closed on ${esc(M.fmtAdminDate(prev.closed_at))}</b>. You can change the Status back until <b>${esc(M.fmtAdminDate(M.reopenUntil(prev).toISOString()))}</b>; after that it becomes read-only.`;
+    note.hidden = false;
+  } else note.hidden = true;
   $('#projectHint').hidden = proj;
   const badge = $('#typeBadge');
   badge.textContent = proj ? 'Project' : 'Thought';
@@ -556,9 +593,11 @@ function readForm() {
     planned_cost: num('planned_cost'),
     actual_cost: num('actual_cost'),
     dev_link: M.normaliseUrl(v('dev_link')),
+    closing_remarks: v('closing_remarks'),
   };
   d.end_date = M.endDate(d.start_date, d.duration_weeks);
   d.percent_complete = M.percentFor(M.isProject(d) ? d.status : null, num('percent_complete'));
+  d.closed_at = M.closedAtFor(state.editingId ? find(state.editingId) : null, d);
   return d;
 }
 
@@ -566,6 +605,8 @@ function validate(d) {
   if (!d.title) return 'Please give it a title.';
   if (!d.category) return 'Please choose a Category.';
   if (M.wordCount(d.description) > M.WORD_LIMIT) return `Description is over ${M.WORD_LIMIT} words.`;
+  if (M.isCompleted(d) && !d.closing_remarks) return 'Please add Closing remarks to complete the project.';
+  if ((d.closing_remarks || '').length > M.REMARKS_MAX) return `Closing remarks must be ${M.REMARKS_MAX} characters or fewer.`;
   if (d.dev_link && !M.safeUrl(d.dev_link)) return 'Development link must be a web address.';
   const rawPct = fe('percent_complete').value.trim();
   if (M.isProject(d) && d.status === 'wip' && rawPct !== '' && (+rawPct < 0 || +rawPct > 100 || isNaN(+rawPct))) return '% Complete must be between 0 and 100.';
@@ -577,10 +618,12 @@ function validate(d) {
 
 async function onSave(e) {
   e.preventDefault();
+  if (state.editLocked) return;
   const d = readForm();
   const err = validate(d);
   if (err) {
     if (!d.category && d.title) { fe('category').focus(); fe('category').classList.add('invalid'); }
+    else if (M.isCompleted(d) && !d.closing_remarks) { fe('closing_remarks').focus(); fe('closing_remarks').classList.add('invalid'); }
     return toast(err, true);
   }
   const btn = F.querySelector('[type=submit]');
@@ -588,11 +631,14 @@ async function onSave(e) {
   try {
     const id = state.editingId;
     const wasProject = id && M.isProject(find(id));
+    const wasDoneBefore = id && M.isCompleted(find(id));
     const row = id ? await store.update(id, d) : await store.create(d);
     replaceItem(row);
     closeEditor();
     render();
-    toast(!wasProject && M.isProject(row) ? 'Saved · promoted to Project' : 'Saved');
+    const wasDone = wasDoneBefore;
+    toast(!wasProject && M.isProject(row) ? 'Saved · promoted to Project'
+      : M.isCompleted(row) && !wasDone ? `Completed · closed on ${M.fmtAdminDate(row.closed_at)}` : 'Saved');
   } catch (ex) { toast(ex.message, true); } finally { btn.disabled = false; }
 }
 
@@ -840,6 +886,7 @@ function wire() {
   fe('category').innerHTML = '<option value="">Choose a category…</option>'
     + M.CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join('');
   fe('category').addEventListener('change', () => fe('category').classList.remove('invalid'));
+  fe('closing_remarks').addEventListener('input', () => fe('closing_remarks').classList.remove('invalid'));
 
   // Dashboard filters
   const setDash = (patch) => { Object.assign(state.dash, patch); state.colf = state.colf || {}; savePrefs(); render(); };
@@ -917,6 +964,7 @@ function wire() {
   // Drag & drop between Kanban columns
   main.addEventListener('dragstart', (e) => {
     const card = e.target.closest?.('.card'); if (!card) return;
+    if (card.classList.contains('locked')) { e.preventDefault(); return; }
     e.dataTransfer.setData('text/plain', card.dataset.id);
     e.dataTransfer.effectAllowed = 'move';
     requestAnimationFrame(() => card.classList.add('dragging'));
@@ -938,7 +986,12 @@ function wire() {
     const t = find(e.dataTransfer.getData('text/plain'));
     const b = BOARDS[state.board];
     if (!t || !b || b.key(t) === body.dataset.drop) return;
-    patchItem(t.id, b.move(t, body.dataset.drop));
+    if (M.isLocked(t)) return toast(`Closed more than ${M.LOCK_DAYS} days ago — this item is read-only.`, true);
+    const patch = b.move(t, body.dataset.drop);
+    const after = { ...t, ...patch };
+    if (M.isCompleted(after) && !M.isCompleted(t)) return openEditorToComplete(t.id);   // remarks are required
+    patch.closed_at = M.closedAtFor(t, after);
+    patchItem(t.id, patch);
   });
 
   // Editor
