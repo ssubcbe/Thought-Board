@@ -746,3 +746,4 @@ body.touring { overflow: hidden; }
 .card.locked h3, .card.locked .card-desc, .card.locked .card-costs, .card.locked .card-remarks { color: var(--muted); }
 .card.locked .chip { filter: grayscale(1); opacity: .8; }
 .card.locked .due.closed { color: var(--muted); }
+.sort-note { color: var(--muted); opacity: .8; }

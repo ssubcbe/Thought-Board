@@ -289,15 +289,25 @@ function cardHtml(t, board) {
   </article>`;
 }
 
+/* Cards in every column: earliest due (End) date first; cards without a due date go last. */
+function byDueDate(a, b) {
+  const da = a.end_date ? String(a.end_date).slice(0, 10) : null;
+  const db = b.end_date ? String(b.end_date).slice(0, 10) : null;
+  if (da && db && da !== db) return da < db ? -1 : 1;
+  if (da && !db) return -1;
+  if (!da && db) return 1;
+  return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));   // tie: most recently updated first
+}
+
 function renderBoard() {
   const main = $('#main');
   if (!state.items.length) { main.innerHTML = emptyState(); return; }
   const b = BOARDS[state.board] || BOARDS.pipeline;
   const items = visible().filter((t) => b.include(t) && matches(t));
-  main.innerHTML = `<p class="board-hint">${esc(b.hint)}${dashActive() ? ' <b class="filtered-note">· Filtered</b>' : ''}</p>
+  main.innerHTML = `<p class="board-hint">${esc(b.hint)} <span class="sort-note">Cards sorted by due date, soonest first.</span>${dashActive() ? ' <b class="filtered-note">· Filtered</b>' : ''}</p>
   <div class="board" style="--cols:${b.columns.length}">
     ${b.columns.map((col) => {
-      const cards = items.filter((t) => b.key(t) === col.id);
+      const cards = items.filter((t) => b.key(t) === col.id).sort(byDueDate);
       return `<section class="col${state.focus === col.id ? ' focus' : ''}">
         <header class="col-head"><h2>${esc(col.label)}</h2><span class="count">${cards.length}</span></header>
         <div class="col-body" data-drop="${esc(col.id)}">
